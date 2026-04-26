@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { useTournament } from '../store/tournamentStore'
+import { useAuth } from '../store/authStore'
 import ScheduleGrid from './ScheduleGrid'
 import MatchSidebar from './MatchSidebar'
 import AlertPanel from './AlertPanel'
@@ -10,7 +11,7 @@ import {
   Wand2, RotateCcw, Trophy, Upload, Settings,
   CheckCircle, ChevronDown, ChevronUp, Timer,
   Hash, CalendarDays, CalendarRange, Network,
-  Cloud, CloudCheck
+  Cloud, CloudCheck, LogOut, User
 } from 'lucide-react'
 
 // ─── Constraints quick-edit panel ────────────────────────────────────────────
@@ -139,6 +140,7 @@ function ConstraintsBar() {
 export default function TournamentBuilder() {
   const { state, dispatch } = useTournament()
   const { config, matches, schedule, violations } = state
+  const { user, logout } = useAuth()
   const fileRef = useRef()
   const [activeTab, setActiveTab] = useState('calendar')
   const [cloudOpen, setCloudOpen] = useState(false)
@@ -251,6 +253,19 @@ export default function TournamentBuilder() {
         >
           Impostazioni
         </button>
+
+        {/* User info + logout */}
+        <div className="flex items-center gap-1.5 pl-2 border-l border-gray-700">
+          <User size={12} className="text-gray-500" />
+          <span className="text-xs text-gray-400 font-medium">{user?.username}</span>
+          <button
+            onClick={logout}
+            title="Esci"
+            className="text-gray-500 hover:text-red-400 p-1 rounded-lg hover:bg-gray-700 transition-all ml-1"
+          >
+            <LogOut size={13} />
+          </button>
+        </div>
       </header>
 
       {/* Constraints quick-edit */}
