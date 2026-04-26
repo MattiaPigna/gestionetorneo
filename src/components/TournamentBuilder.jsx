@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { useTournament } from '../store/tournamentStore'
 import { useAuth } from '../store/authStore'
+import { saveTournament } from '../api'
 import ScheduleGrid from './ScheduleGrid'
 import MatchSidebar from './MatchSidebar'
 import AlertPanel from './AlertPanel'
@@ -11,7 +12,7 @@ import {
   Wand2, RotateCcw, Trophy, Upload, Settings,
   CheckCircle, ChevronDown, ChevronUp, Timer,
   Hash, CalendarDays, CalendarRange, Network,
-  Cloud, CloudCheck, LogOut, User
+  Cloud, CloudCheck, LogOut, User, Save, Home
 } from 'lucide-react'
 
 // ─── Constraints quick-edit panel ────────────────────────────────────────────
@@ -142,13 +143,25 @@ export default function TournamentBuilder() {
   const { config, matches, schedule, violations } = state
   const { user, logout } = useAuth()
   const fileRef = useRef()
-  const [activeTab, setActiveTab] = useState('calendar')
-  const [cloudOpen, setCloudOpen] = useState(false)
-  const [savedId, setSavedId] = useState(null)
-  const [savedName, setSavedName] = useState('')
+  const [activeTab, setActiveTab]   = useState('calendar')
+  const [cloudOpen, setCloudOpen]   = useState(false)
+  const [saving, setSaving]         = useState(false)
+
+  const savedId = state.savedId
 
   const scheduledCount = Object.keys(schedule).length
   const hasErrors = violations && violations.some(v => v.severity === 'error')
+
+  const handleGoHome = () => dispatch({ type: 'SET_STEP', payload: 'dashboard' })
+
+  const handleQuickSave = async () => {
+    if (!savedId) { setCloudOpen(true); return }
+    setSaving(true)
+    try {
+      await saveTournament(savedId, config.name, config.sport, state)
+    } catch { /* error shown in cloud modal if needed */ }
+    finally { setSaving(false) }
+  }
 
   const handleClearSchedule = () => {
     if (confirm('Vuoi svuotare il calendario? Le partite rimarranno disponibili.')) {
@@ -175,6 +188,14 @@ export default function TournamentBuilder() {
     <div className="flex flex-col h-screen overflow-hidden">
       {/* Top Bar */}
       <header className="flex-shrink-0 bg-gray-900 border-b border-gray-700 px-4 py-2.5 flex items-center gap-3">
+        <button
+          onClick={handleGoHome}
+          className="flex items-center gap-1.5 text-gray-400 hover:text-white text-xs px-2 py-1.5 rounded-lg hover:bg-gray-700 transition-all mr-1"
+          title="Torna ai tornei"
+        >
+          <Home size={14} />
+        </button>
+
         <div className="flex items-center gap-2 mr-2">
           <div className="w-8 h-8 bg-blue-500/20 rounded-xl flex items-center justify-center">
             <Trophy size={16} className="text-blue-400" />
@@ -222,17 +243,33 @@ export default function TournamentBuilder() {
         </button>
         <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={handleLoadJSON} />
 
+        {/* Quick save (visible only when already saved) */}
+        {savedId && (
+          <button
+            onClick={handleQuickSave}
+            disabled={saving}
+            className="flex items-center gap-1.5 bg-emerald-600/80 hover:bg-emerald-600 text-white text-sm px-3 py-1.5 rounded-xl transition-all disabled:opacity-50"
+            title="Salva aggiornamento"
+          >
+            {saving
+              ? <><Cloud size={14} className="animate-pulse" /> Salvo...</>
+              : <><Save size={14} /> Salva</>
+            }
+          </button>
+        )}
+
+        {/* Cloud modal (new save or manage) */}
         <button
           onClick={() => setCloudOpen(true)}
           className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-xl transition-all ${
             savedId
-              ? 'bg-blue-500/20 border border-blue-500/40 text-blue-300 hover:bg-blue-500/30'
-              : 'bg-gray-700 hover:bg-gray-600 text-white'
+              ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+              : 'bg-blue-500 hover:bg-blue-600 text-white'
           }`}
-          title={savedId ? `Salvato: ${savedName}` : 'Salva/carica nel cloud'}
+          title={savedId ? 'Gestisci salvataggio' : 'Salva nel cloud'}
         >
           {savedId ? <CloudCheck size={14} /> : <Cloud size={14} />}
-          {savedId ? 'Cloud' : 'Cloud'}
+          {savedId ? 'Cloud' : 'Salva'}
         </button>
 
         <button
@@ -324,8 +361,8 @@ export default function TournamentBuilder() {
       {cloudOpen && (
         <CloudModal
           savedId={savedId}
-          onSaved={(id, name) => { setSavedId(id); setSavedName(name) }}
-          onLoaded={(id, name) => { setSavedId(id); setSavedName(name) }}
+          onSaved={(id) => { dispatch({ type: 'SET_SAVED_ID', payload: id }) }}
+          onLoaded={(id) => { dispatch({ type: 'SET_SAVED_ID', payload: id }) }}
           onClose={() => setCloudOpen(false)}
         />
       )}

@@ -43,7 +43,7 @@ export default function CloudModal({ savedId, onSaved, onLoaded, onClose }) {
     try {
       const row = await saveTournament(savedId, name.trim(), state.config.sport, state)
       setSuccessMsg(savedId ? 'Torneo aggiornato!' : 'Torneo salvato!')
-      onSaved(row.id, row.name)
+      onSaved(row.id)
       setTimeout(() => setSuccessMsg(''), 2500)
     } catch (e) {
       setError(e.message)
@@ -56,8 +56,8 @@ export default function CloudModal({ savedId, onSaved, onLoaded, onClose }) {
     setError('')
     try {
       const row = await loadTournament(id)
-      dispatch({ type: 'LOAD_STATE', payload: row.data })
-      onLoaded(row.id, row.name)
+      dispatch({ type: 'LOAD_STATE', payload: { ...row.data, savedId: row.id } })
+      onLoaded(row.id)
       onClose()
     } catch (e) {
       setError(e.message)

@@ -308,7 +308,8 @@ function computeViolations(schedule, matches, teams, constraints, config) {
 // ─── Initial State ──────────────────────────────────────────────────────────
 
 const initialState = {
-  step: 'setup',
+  step: 'dashboard',
+  savedId: null,   // server ID of the currently loaded/saved tournament
   config: {
     name: 'Il Mio Torneo',
     numDays: 6,
@@ -520,8 +521,17 @@ function reducer(state, action) {
       return { ...state, schedule, violations: computeViolations(schedule, matches, state.teams, state.constraints, config) }
     }
 
+    case 'SET_SAVED_ID':
+      return { ...state, savedId: action.payload }
+
     case 'LOAD_STATE':
-      return { ...initialState, ...action.payload, step: 'build', violations: action.payload.violations || [] }
+      return {
+        ...initialState,
+        ...action.payload,
+        step: 'build',
+        violations: action.payload.violations || [],
+        savedId: action.payload.savedId ?? null,
+      }
 
     case 'RESET':
       return { ...initialState }

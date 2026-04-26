@@ -57,6 +57,9 @@ exports.handler = async (event) => {
   }
 
   try {
+    if (!process.env.NETLIFY_DATABASE_URL && !process.env.DATABASE_URL) {
+      return fail('DATABASE_URL non configurata — aggiungila nelle variabili d\'ambiente Netlify', 500)
+    }
     await initDb()
 
     const parts      = route.split('/').filter(Boolean)
