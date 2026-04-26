@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    @apply bg-gray-950 text-gray-100 font-sans;
+    min-height: 100vh;
+  }
+}
+
+@layer utilities {
+  .drag-over {
+    @apply ring-2 ring-blue-400 bg-blue-950/40;
+  }
+  .match-card-dragging {
+    @apply opacity-40 scale-95;
+  }
+}
+
+@media print {
+  .no-print { display: none !important; }
+  body { background: white !important; color: black !important; }
+  .print-table { break-inside: avoid; }
+}
