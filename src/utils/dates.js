@@ -5,6 +5,15 @@ const MONTHS_FULL  = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno',
 
 function parse(str) { return new Date(str + 'T00:00:00') }
 
+// toISOString() uses UTC and causes off-by-one errors in UTC+ timezones.
+// Use local date components instead.
+function toLocal(d) {
+  const y  = d.getFullYear()
+  const m  = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${dd}`
+}
+
 // 0=Lun … 6=Dom (Italian convention)
 export function dowMon(dateStr) {
   return (parse(dateStr).getDay() + 6) % 7
@@ -18,7 +27,7 @@ export function computePlayingDays(startDate, endDate, excludedDates = []) {
   const end = parse(endDate)
   if (cur > end) return []
   while (cur <= end) {
-    const s = cur.toISOString().split('T')[0]
+    const s = toLocal(cur)
     if (!excluded.has(s)) days.push(s)
     cur.setDate(cur.getDate() + 1)
   }
@@ -32,7 +41,7 @@ export function allDatesInRange(startDate, endDate) {
   const end = parse(endDate)
   if (cur > end) return []
   while (cur <= end) {
-    dates.push(cur.toISOString().split('T')[0])
+    dates.push(toLocal(cur))
     cur.setDate(cur.getDate() + 1)
   }
   return dates
@@ -69,7 +78,7 @@ export function buildCalendarCells(datesInRange, allRangeDates) {
   const cells = []
   const cur = new Date(startCal)
   while (cur <= endCal) {
-    const s = cur.toISOString().split('T')[0]
+    const s = toLocal(cur)
     cells.push({ dateStr: s, inRange: allSet.has(s) })
     cur.setDate(cur.getDate() + 1)
   }
