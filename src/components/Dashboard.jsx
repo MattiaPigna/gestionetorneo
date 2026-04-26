@@ -14,7 +14,7 @@ function fmt(iso) {
 
 function TournamentCard({ row, onOpen, onDelete, deleting }) {
   return (
-    <div className="bg-gray-800/60 border border-gray-700 rounded-2xl p-5 flex flex-col gap-3 hover:border-gray-500 transition-all group">
+    <div className="bg-gray-800/60 border border-gray-700 rounded-2xl p-4 sm:p-5 flex flex-col gap-3 hover:border-gray-500 active:scale-[0.98] transition-all group">
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <h3 className="font-bold text-white text-base truncate">{row.name}</h3>
@@ -27,10 +27,10 @@ function TournamentCard({ row, onOpen, onDelete, deleting }) {
         <button
           onClick={() => onDelete(row.id)}
           disabled={deleting}
-          className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 transition-all flex-shrink-0 p-1"
+          className="text-gray-600 hover:text-red-400 transition-all flex-shrink-0 p-2 -mr-1 -mt-1 rounded-xl hover:bg-gray-700"
           title="Elimina"
         >
-          {deleting ? <RefreshCw size={14} className="animate-spin" /> : <Trash2 size={14} />}
+          {deleting ? <RefreshCw size={15} className="animate-spin" /> : <Trash2 size={15} />}
         </button>
       </div>
 
@@ -43,7 +43,7 @@ function TournamentCard({ row, onOpen, onDelete, deleting }) {
 
       <button
         onClick={() => onOpen(row.id)}
-        className="w-full flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold py-2 rounded-xl transition-all"
+        className="w-full flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white text-sm font-semibold py-3 rounded-xl transition-all"
       >
         <FolderOpen size={14} /> Apri torneo
       </button>
@@ -124,20 +124,20 @@ export default function Dashboard() {
       </header>
 
       {/* Main */}
-      <main className="flex-1 max-w-4xl w-full mx-auto px-6 py-10">
+      <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-10">
         {/* CTA */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-6 sm:mb-8">
           <div>
-            <h2 className="text-2xl font-bold text-white">I miei tornei</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-white">I miei tornei</h2>
             <p className="text-gray-500 text-sm mt-1">
               {list.length > 0 ? `${list.length} torneo salvato` : 'Nessun torneo ancora'}
             </p>
           </div>
           <button
             onClick={handleNew}
-            className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white font-semibold px-5 py-2.5 rounded-xl transition-all"
+            className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white font-semibold px-4 sm:px-5 py-3 rounded-xl transition-all"
           >
-            <Plus size={18} /> Nuovo torneo
+            <Plus size={18} /> <span className="hidden sm:inline">Nuovo torneo</span><span className="sm:hidden">Nuovo</span>
           </button>
         </div>
 
@@ -168,7 +168,7 @@ export default function Dashboard() {
 
         {/* Tournament grid */}
         {!loading && list.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {list.map(row => (
               <div key={row.id} className={opening === row.id ? 'opacity-60 pointer-events-none' : ''}>
                 <TournamentCard

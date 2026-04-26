@@ -438,7 +438,7 @@ export default function FormatTextEditor({ onBack, onGenerate }) {
       </div>
 
       {/* Editor + preview */}
-      <div className="flex gap-3">
+      <div className="flex flex-col md:flex-row gap-3">
         <div className="flex-1 flex flex-col gap-1.5">
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-400">Editor formato</span>
@@ -449,7 +449,7 @@ export default function FormatTextEditor({ onBack, onGenerate }) {
             </button>
           </div>
           <textarea
-            className="w-full h-72 bg-gray-800 border border-gray-600 rounded-xl px-3 py-3 text-sm font-mono text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none leading-relaxed"
+            className="w-full h-52 md:h-72 bg-gray-800 border border-gray-600 rounded-xl px-3 py-3 text-sm font-mono text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none leading-relaxed"
             value={text}
             onChange={e => setText(e.target.value)}
             spellCheck={false}
@@ -464,7 +464,7 @@ export default function FormatTextEditor({ onBack, onGenerate }) {
           </div>
         </div>
 
-        <div className="w-60 flex-shrink-0">
+        <div className="md:w-60 md:flex-shrink-0">
           <div className="text-xs text-gray-400 mb-1.5 flex items-center gap-1">
             {canGenerate
               ? <CheckCircle size={11} className="text-emerald-400" />
@@ -474,7 +474,7 @@ export default function FormatTextEditor({ onBack, onGenerate }) {
             }
             Anteprima live
           </div>
-          <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-3 h-72 overflow-y-auto">
+          <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-3 max-h-72 overflow-y-auto">
             <MatchPreview matches={matches} teams={teams} errors={errors} warnings={warnings} />
           </div>
         </div>

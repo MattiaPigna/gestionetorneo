@@ -17,7 +17,7 @@ export default function MatchSidebar() {
   })
 
   return (
-    <aside className="w-64 flex-shrink-0 flex flex-col gap-4 overflow-y-auto">
+    <aside className="w-full flex flex-col gap-4 overflow-y-auto">
       <div className="bg-gray-900 border border-gray-700 rounded-2xl p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-semibold text-white flex items-center gap-2">

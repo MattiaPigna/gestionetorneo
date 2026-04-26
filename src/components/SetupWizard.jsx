@@ -181,11 +181,11 @@ function Step1({ onNext }) {
 
       <div>
         <label className="block text-sm font-medium text-gray-300 mb-2">Sport</label>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
           {SPORTS.map(s => (
             <button key={s}
               onClick={() => upd({ sport: s })}
-              className={`py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+              className={`py-2.5 px-3 rounded-lg text-sm font-medium transition-all ${
                 config.sport === s ? 'bg-blue-500 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
               }`}
             >
@@ -250,27 +250,27 @@ function Step1({ onNext }) {
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-2">Ora inizio</label>
           <input type="time"
-            className="w-full bg-gray-800 border border-gray-600 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full bg-gray-800 border border-gray-600 rounded-xl px-3 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={config.startTime}
             onChange={e => upd({ startTime: e.target.value })}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Durata (min)</label>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Durata partita (min)</label>
           <input type="number" min="20" max="180" step="5"
-            className="w-full bg-gray-800 border border-gray-600 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full bg-gray-800 border border-gray-600 rounded-xl px-3 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={config.matchDurationMinutes}
             onChange={e => upd({ matchDurationMinutes: parseInt(e.target.value) || 60 })}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Slot/giorno</label>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Slot per giorno</label>
           <input type="number" min="1" max="16"
-            className="w-full bg-gray-800 border border-gray-600 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full bg-gray-800 border border-gray-600 rounded-xl px-3 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={config.slotsPerDay}
             onChange={e => upd({ slotsPerDay: parseInt(e.target.value) || 8 })}
           />
@@ -508,32 +508,32 @@ export default function SetupWizard() {
   const Icon = STEP_ICONS[step]
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-start sm:items-center justify-center p-4 pt-6">
       <div className="w-full max-w-lg">
         {hasExistingData && (
           <div className="flex justify-center mb-4">
             <button
               onClick={backToBuilder}
-              className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white px-3 py-1.5 rounded-lg hover:bg-gray-800 transition-all"
+              className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white px-3 py-2 rounded-lg hover:bg-gray-800 transition-all"
             >
               <ChevronLeft size={15} /> Torna al calendario
             </button>
           </div>
         )}
 
-        <div className="text-center mb-8">
+        <div className="text-center mb-6">
           <div className="inline-flex items-center gap-3 mb-3">
-            <div className="w-12 h-12 bg-blue-500/20 rounded-2xl flex items-center justify-center">
-              <Icon size={24} className="text-blue-400" />
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-500/20 rounded-2xl flex items-center justify-center">
+              <Icon size={20} className="text-blue-400" />
             </div>
           </div>
-          <h1 className="text-3xl font-bold text-white">Tournament Architect</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white">Tournament Architect</h1>
           <p className="text-gray-400 mt-1">{STEP_LABELS[step]}</p>
         </div>
 
         <StepIndicator current={step} total={STEP_LABELS.length} />
 
-        <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6">
+        <div className="bg-gray-900 border border-gray-700 rounded-2xl p-4 sm:p-6">
           {step === 0 && <Step1 onNext={() => setStep(1)} />}
           {step === 1 && <Step2 onNext={() => setStep(2)} onBack={() => setStep(0)} />}
           {step === 2 && <Step3 onNext={() => setStep(3)} onBack={() => setStep(1)} />}

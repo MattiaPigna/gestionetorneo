@@ -12,7 +12,7 @@ import {
   Wand2, RotateCcw, Trophy, Upload, Settings,
   CheckCircle, ChevronDown, ChevronUp, Timer,
   Hash, CalendarDays, CalendarRange, Network,
-  Cloud, CloudCheck, LogOut, User, Save, Home
+  Cloud, CloudCheck, LogOut, User, Save, Home, ListChecks
 } from 'lucide-react'
 
 // ─── Constraints quick-edit panel ────────────────────────────────────────────
@@ -187,30 +187,31 @@ export default function TournamentBuilder() {
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       {/* Top Bar */}
-      <header className="flex-shrink-0 bg-gray-900 border-b border-gray-700 px-4 py-2.5 flex items-center gap-3">
+      <header className="flex-shrink-0 bg-gray-900 border-b border-gray-700 px-3 py-2 flex flex-wrap items-center gap-2">
+        {/* Row 1 items — always visible */}
         <button
           onClick={handleGoHome}
-          className="flex items-center gap-1.5 text-gray-400 hover:text-white text-xs px-2 py-1.5 rounded-lg hover:bg-gray-700 transition-all mr-1"
+          className="flex items-center gap-1 text-gray-400 hover:text-white p-2 rounded-lg hover:bg-gray-700 transition-all"
           title="Torna ai tornei"
         >
-          <Home size={14} />
+          <Home size={16} />
         </button>
 
-        <div className="flex items-center gap-2 mr-2">
-          <div className="w-8 h-8 bg-blue-500/20 rounded-xl flex items-center justify-center">
-            <Trophy size={16} className="text-blue-400" />
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-7 h-7 bg-blue-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+            <Trophy size={14} className="text-blue-400" />
           </div>
-          <div>
-            <h1 className="text-sm font-bold text-white leading-tight">{config.name}</h1>
-            <div className="text-[10px] text-gray-500">{config.sport} · {config.numDays}g · {matches.length}p</div>
+          <div className="min-w-0">
+            <h1 className="text-sm font-bold text-white leading-tight truncate max-w-[120px] sm:max-w-xs">{config.name}</h1>
+            <div className="text-[10px] text-gray-500 hidden sm:block">{config.sport} · {config.numDays}g · {matches.length}p</div>
           </div>
         </div>
 
         <div className="flex-1" />
 
-        {/* Progress */}
-        <div className="flex items-center gap-2 bg-gray-800 rounded-xl px-3 py-1.5">
-          <div className="w-24 h-1.5 bg-gray-600 rounded-full overflow-hidden">
+        {/* Progress pill */}
+        <div className="flex items-center gap-1.5 bg-gray-800 rounded-xl px-2.5 py-1.5">
+          <div className="w-16 sm:w-24 h-1.5 bg-gray-600 rounded-full overflow-hidden">
             <div
               className="h-full bg-emerald-500 rounded-full transition-all duration-300"
               style={{ width: `${matches.length ? (scheduledCount / matches.length) * 100 : 0}%` }}
@@ -219,49 +220,54 @@ export default function TournamentBuilder() {
           <span className="text-xs text-gray-300">{scheduledCount}/{matches.length}</span>
         </div>
 
+        {/* Auto-schedule */}
         <button
           onClick={() => dispatch({ type: 'AUTO_SCHEDULE' })}
-          className="flex items-center gap-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-1.5 rounded-xl transition-all"
+          className="flex items-center gap-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded-xl transition-all"
         >
-          <Wand2 size={14} /> Auto-pianifica
+          <Wand2 size={14} />
+          <span className="hidden sm:inline">Auto-pianifica</span>
         </button>
 
+        {/* Clear — desktop only */}
         <button
           onClick={handleClearSchedule}
-          className="flex items-center gap-1.5 bg-gray-700 hover:bg-gray-600 text-white text-sm px-3 py-1.5 rounded-xl transition-all"
+          className="hidden sm:flex items-center gap-1.5 bg-gray-700 hover:bg-gray-600 text-white text-sm p-2 rounded-xl transition-all"
           title="Svuota calendario"
         >
           <RotateCcw size={14} />
         </button>
 
+        {/* Upload JSON — desktop only */}
         <button
           onClick={() => fileRef.current?.click()}
-          className="flex items-center gap-1.5 bg-gray-700 hover:bg-gray-600 text-white text-sm px-3 py-1.5 rounded-xl transition-all"
+          className="hidden sm:flex items-center gap-1.5 bg-gray-700 hover:bg-gray-600 text-white text-sm p-2 rounded-xl transition-all"
           title="Carica torneo JSON"
         >
           <Upload size={14} />
         </button>
         <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={handleLoadJSON} />
 
-        {/* Quick save (visible only when already saved) */}
+        {/* Quick save */}
         {savedId && (
           <button
             onClick={handleQuickSave}
             disabled={saving}
-            className="flex items-center gap-1.5 bg-emerald-600/80 hover:bg-emerald-600 text-white text-sm px-3 py-1.5 rounded-xl transition-all disabled:opacity-50"
+            className="flex items-center gap-1.5 bg-emerald-600/80 hover:bg-emerald-600 text-white text-sm px-3 py-2 rounded-xl transition-all disabled:opacity-50"
             title="Salva aggiornamento"
           >
             {saving
-              ? <><Cloud size={14} className="animate-pulse" /> Salvo...</>
-              : <><Save size={14} /> Salva</>
+              ? <Cloud size={14} className="animate-pulse" />
+              : <Save size={14} />
             }
+            <span className="hidden sm:inline">{saving ? 'Salvo...' : 'Salva'}</span>
           </button>
         )}
 
-        {/* Cloud modal (new save or manage) */}
+        {/* Cloud */}
         <button
           onClick={() => setCloudOpen(true)}
-          className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-xl transition-all ${
+          className={`flex items-center gap-1.5 text-sm px-3 py-2 rounded-xl transition-all ${
             savedId
               ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
               : 'bg-blue-500 hover:bg-blue-600 text-white'
@@ -269,38 +275,39 @@ export default function TournamentBuilder() {
           title={savedId ? 'Gestisci salvataggio' : 'Salva nel cloud'}
         >
           {savedId ? <CloudCheck size={14} /> : <Cloud size={14} />}
-          {savedId ? 'Cloud' : 'Salva'}
+          <span className="hidden sm:inline">{savedId ? 'Cloud' : 'Salva'}</span>
         </button>
 
+        {/* Export */}
         <button
           onClick={() => dispatch({ type: 'SET_STEP', payload: 'export' })}
-          className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-xl transition-all ${
+          className={`flex items-center gap-1.5 text-sm px-3 py-2 rounded-xl transition-all ${
             hasErrors
               ? 'bg-red-700 hover:bg-red-800 text-white'
               : 'bg-emerald-600 hover:bg-emerald-700 text-white'
           }`}
         >
           {hasErrors ? <Settings size={14} /> : <CheckCircle size={14} />}
-          Esporta
+          <span className="hidden sm:inline">Esporta</span>
         </button>
 
+        {/* Settings — desktop only */}
         <button
           onClick={() => dispatch({ type: 'SET_STEP', payload: 'setup' })}
-          className="text-gray-400 hover:text-white text-xs px-2 py-1 rounded-lg hover:bg-gray-700 transition-all"
+          className="hidden sm:block text-gray-400 hover:text-white text-xs px-2 py-1.5 rounded-lg hover:bg-gray-700 transition-all"
         >
           Impostazioni
         </button>
 
-        {/* User info + logout */}
-        <div className="flex items-center gap-1.5 pl-2 border-l border-gray-700">
-          <User size={12} className="text-gray-500" />
-          <span className="text-xs text-gray-400 font-medium">{user?.username}</span>
+        {/* User + logout */}
+        <div className="flex items-center gap-1 pl-2 border-l border-gray-700">
+          <span className="text-xs text-gray-400 font-medium hidden sm:inline">{user?.username}</span>
           <button
             onClick={logout}
             title="Esci"
-            className="text-gray-500 hover:text-red-400 p-1 rounded-lg hover:bg-gray-700 transition-all ml-1"
+            className="text-gray-500 hover:text-red-400 p-1.5 rounded-lg hover:bg-gray-700 transition-all"
           >
-            <LogOut size={13} />
+            <LogOut size={14} />
           </button>
         </div>
       </header>
@@ -319,7 +326,7 @@ export default function TournamentBuilder() {
       <div className="flex-shrink-0 flex items-center gap-1 px-4 py-2 bg-gray-900 border-b border-gray-700">
         <button
           onClick={() => setActiveTab('calendar')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+          className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
             activeTab === 'calendar'
               ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
               : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'
@@ -330,7 +337,7 @@ export default function TournamentBuilder() {
         </button>
         <button
           onClick={() => setActiveTab('bracket')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+          className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
             activeTab === 'bracket'
               ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
               : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'
@@ -339,20 +346,55 @@ export default function TournamentBuilder() {
           <Network size={13} />
           Tabellone
         </button>
+        {/* Mobile-only: Partite tab */}
+        <button
+          onClick={() => setActiveTab('matches')}
+          className={`md:hidden flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+            activeTab === 'matches'
+              ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
+              : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'
+          }`}
+        >
+          <ListChecks size={13} />
+          Partite
+        </button>
+
+        {/* Mobile-only settings shortcut */}
+        <button
+          onClick={() => dispatch({ type: 'SET_STEP', payload: 'setup' })}
+          className="sm:hidden ml-auto flex items-center gap-1 text-gray-500 hover:text-gray-200 px-2 py-2 rounded-lg hover:bg-gray-800 transition-all text-xs"
+        >
+          <Settings size={13} /> Impostazioni
+        </button>
       </div>
 
       {/* Main Content */}
-      {activeTab === 'calendar' ? (
-        <div className="flex flex-1 gap-4 p-4 overflow-hidden">
-          <MatchSidebar />
+      {activeTab === 'calendar' && (
+        <div className="flex flex-1 gap-4 p-3 md:p-4 overflow-hidden">
+          {/* Sidebar: visible on desktop only */}
+          <div className="hidden md:flex flex-col gap-4 w-64 flex-shrink-0 overflow-y-auto">
+            <MatchSidebar />
+          </div>
           <div className="flex-1 flex flex-col gap-2 overflow-hidden">
-            <div className="text-xs text-gray-500 bg-gray-800/60 rounded-lg px-3 py-1.5 self-start">
+            <div className="text-xs text-gray-500 bg-gray-800/60 rounded-lg px-3 py-1.5 self-start hidden md:block">
               Trascina le partite nelle celle · Clicca sugli orari per modificarli
+            </div>
+            <div className="text-xs text-gray-500 bg-gray-800/60 rounded-lg px-3 py-1.5 self-start md:hidden">
+              Usa "Auto-pianifica" o la tab Partite per gestire il calendario
             </div>
             <ScheduleGrid />
           </div>
         </div>
-      ) : (
+      )}
+
+      {/* Mobile-only Partite tab */}
+      {activeTab === 'matches' && (
+        <div className="flex-1 overflow-y-auto p-4">
+          <MatchSidebar />
+        </div>
+      )}
+
+      {activeTab === 'bracket' && (
         <div className="flex-1 overflow-auto p-4">
           <BracketView />
         </div>
