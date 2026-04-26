@@ -492,9 +492,15 @@ const STEP_ICONS = [Trophy, Users, Settings, Wand2]
 
 export default function SetupWizard() {
   const [step, setStep] = useState(0)
-  const { dispatch } = useTournament()
+  const { state, dispatch } = useTournament()
+
+  const hasExistingData = state.matches.length > 0
+  const hasSchedule = Object.keys(state.schedule).length > 0
+
+  const backToBuilder = () => dispatch({ type: 'SET_STEP', payload: 'build' })
 
   const goToBuild = (parsedMatches) => {
+    if (hasSchedule && !confirm('Rigenerare le partite azzererà il calendario già pianificato. Continuare?')) return
     dispatch({ type: 'SET_MATCHES_FROM_TEXT', payload: parsedMatches })
     setTimeout(() => dispatch({ type: 'SET_STEP', payload: 'build' }), 50)
   }
@@ -504,6 +510,17 @@ export default function SetupWizard() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="w-full max-w-lg">
+        {hasExistingData && (
+          <div className="flex justify-center mb-4">
+            <button
+              onClick={backToBuilder}
+              className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white px-3 py-1.5 rounded-lg hover:bg-gray-800 transition-all"
+            >
+              <ChevronLeft size={15} /> Torna al calendario
+            </button>
+          </div>
+        )}
+
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-3 mb-3">
             <div className="w-12 h-12 bg-blue-500/20 rounded-2xl flex items-center justify-center">
