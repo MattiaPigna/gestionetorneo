@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTournament } from '../store/tournamentStore'
 import FormatTextEditor from './FormatTextEditor'
+import { allDatesInRange, computePlayingDays, dowMon, buildCalendarCells, getMonthLabel } from '../utils/dates'
 import {
   Trophy, Users, Settings, ChevronRight, ChevronLeft,
   Plus, Trash2, Shuffle, Wand2
@@ -26,11 +27,145 @@ function StepIndicator({ current, total }) {
   )
 }
 
+// ─── Excluded-days calendar ───────────────────────────────────────────────────
+
+function MonthCalendar({ dates, allRangeDates, excludedSet, onToggle }) {
+  const cells = buildCalendarCells(dates, allRangeDates)
+  return (
+    <div>
+      <div className="text-xs font-semibold text-gray-400 mb-1">{getMonthLabel(dates[0])}</div>
+      <div className="grid grid-cols-7 gap-px">
+        {['L','M','M','G','V','S','D'].map((d, i) => (
+          <div key={i} className="text-center text-[9px] text-gray-600 pb-0.5">{d}</div>
+        ))}
+        {cells.map(({ dateStr, inRange }) => {
+          if (!inRange) return <div key={dateStr} />
+          const day = parseInt(dateStr.split('-')[2])
+          const excluded = excludedSet.has(dateStr)
+          return (
+            <button
+              key={dateStr}
+              onClick={() => onToggle(dateStr)}
+              title={excluded ? 'Click per includere' : 'Click per escludere'}
+              className={`h-6 rounded text-[10px] font-medium transition-all ${
+                excluded
+                  ? 'bg-red-900/50 text-red-400/60 line-through'
+                  : 'bg-emerald-900/40 text-emerald-300 hover:bg-red-900/40 hover:text-red-400'
+              }`}
+            >
+              {day}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function ExcludedDaysPicker({ startDate, endDate, excludedDates, onChange }) {
+  const allDates   = allDatesInRange(startDate, endDate)
+  const excludedSet = new Set(excludedDates)
+
+  const toggle = (dateStr) => {
+    onChange(excludedSet.has(dateStr)
+      ? excludedDates.filter(d => d !== dateStr)
+      : [...excludedDates, dateStr])
+  }
+
+  const toggleWeekdays = (dows) => {
+    const targets = allDates.filter(d => dows.includes(dowMon(d)))
+    const allExcl = targets.length > 0 && targets.every(d => excludedSet.has(d))
+    if (allExcl) {
+      onChange(excludedDates.filter(d => !targets.includes(d)))
+    } else {
+      const toAdd = targets.filter(d => !excludedSet.has(d))
+      onChange([...excludedDates, ...toAdd])
+    }
+  }
+
+  // Group by year-month
+  const monthGroups = {}
+  allDates.forEach(d => {
+    const key = d.slice(0, 7)
+    if (!monthGroups[key]) monthGroups[key] = []
+    monthGroups[key].push(d)
+  })
+
+  const playingCount = allDates.filter(d => !excludedSet.has(d)).length
+  const excludedCount = excludedDates.filter(d => allDates.includes(d)).length
+
+  const quickBtns = [
+    { label: 'Sabati',    dows: [5] },
+    { label: 'Domeniche', dows: [6] },
+    { label: 'Weekend',   dows: [5, 6] },
+  ]
+
+  return (
+    <div className="space-y-3">
+      {/* Quick buttons */}
+      <div className="flex gap-2 flex-wrap items-center">
+        <span className="text-xs text-gray-500">Escludi:</span>
+        {quickBtns.map(({ label, dows }) => {
+          const targets = allDates.filter(d => dows.includes(dowMon(d)))
+          const allExcl = targets.length > 0 && targets.every(d => excludedSet.has(d))
+          return (
+            <button
+              key={label}
+              onClick={() => toggleWeekdays(dows)}
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                allExcl
+                  ? 'bg-emerald-900/50 text-emerald-300 border border-emerald-700/40'
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              }`}
+            >
+              {allExcl ? '✓ ' : ''}{label}
+            </button>
+          )
+        })}
+        {excludedCount > 0 && (
+          <button
+            onClick={() => onChange([])}
+            className="px-2.5 py-1 rounded-lg text-xs text-red-400 hover:bg-red-900/20 transition-all ml-auto"
+          >
+            Azzera ({excludedCount})
+          </button>
+        )}
+      </div>
+
+      {/* Calendar months */}
+      <div className="space-y-4 max-h-72 overflow-y-auto pr-1 rounded-xl bg-gray-800/40 p-3">
+        {Object.entries(monthGroups).map(([key, dates]) => (
+          <MonthCalendar
+            key={key}
+            dates={dates}
+            allRangeDates={allDates}
+            excludedSet={excludedSet}
+            onToggle={toggle}
+          />
+        ))}
+      </div>
+
+      {/* Summary */}
+      <div className="flex items-center gap-2 text-xs">
+        <span className="text-emerald-400 font-bold text-sm">{playingCount}</span>
+        <span className="text-gray-400">giorni di gioco</span>
+        {excludedCount > 0 && (
+          <span className="text-red-400 ml-1">· {excludedCount} esclusi</span>
+        )}
+        <span className="text-gray-600">· {allDates.length} totali</span>
+      </div>
+    </div>
+  )
+}
+
 // ─── Step 1: Configurazione base ─────────────────────────────────────────────
 
 function Step1({ onNext }) {
   const { state, dispatch } = useTournament()
   const { config } = state
+  const upd = (payload) => dispatch({ type: 'UPDATE_CONFIG', payload })
+
+  const hasDates = config.startDate && config.endDate
 
   return (
     <div className="space-y-5">
@@ -39,7 +174,7 @@ function Step1({ onNext }) {
         <input
           className="w-full bg-gray-800 border border-gray-600 rounded-xl px-4 py-3 text-white text-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           value={config.name}
-          onChange={e => dispatch({ type: 'UPDATE_CONFIG', payload: { name: e.target.value } })}
+          onChange={e => upd({ name: e.target.value })}
           placeholder="Es: Torneo Primavera 2025"
         />
       </div>
@@ -49,7 +184,7 @@ function Step1({ onNext }) {
         <div className="grid grid-cols-4 gap-2">
           {SPORTS.map(s => (
             <button key={s}
-              onClick={() => dispatch({ type: 'UPDATE_CONFIG', payload: { sport: s } })}
+              onClick={() => upd({ sport: s })}
               className={`py-2 px-3 rounded-lg text-sm font-medium transition-all ${
                 config.sport === s ? 'bg-blue-500 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
               }`}
@@ -60,37 +195,84 @@ function Step1({ onNext }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      {/* Date range */}
+      <div>
+        <label className="block text-sm font-medium text-gray-300 mb-2">Date del torneo</label>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <div className="text-xs text-gray-500 mb-1">Inizio</div>
+            <input type="date"
+              className="w-full bg-gray-800 border border-gray-600 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={config.startDate}
+              onChange={e => upd({ startDate: e.target.value })}
+            />
+          </div>
+          <div>
+            <div className="text-xs text-gray-500 mb-1">Fine</div>
+            <input type="date"
+              className="w-full bg-gray-800 border border-gray-600 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={config.endDate}
+              min={config.startDate}
+              onChange={e => upd({ endDate: e.target.value })}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Excluded days calendar — only when both dates are set */}
+      {hasDates && (
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Giorni del torneo</label>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Giorni non giocabili
+            <span className="ml-2 text-xs font-normal text-gray-500">(click per escludere)</span>
+          </label>
+          <ExcludedDaysPicker
+            startDate={config.startDate}
+            endDate={config.endDate}
+            excludedDates={config.excludedDates || []}
+            onChange={excluded => upd({ excludedDates: excluded })}
+          />
+        </div>
+      )}
+
+      {/* Fallback: manual day count when no dates */}
+      {!hasDates && (
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Giorni del torneo
+            <span className="ml-2 text-xs font-normal text-gray-500">(oppure imposta le date sopra)</span>
+          </label>
           <input type="number" min="1" max="30"
             className="w-full bg-gray-800 border border-gray-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={config.numDays}
-            onChange={e => dispatch({ type: 'UPDATE_CONFIG', payload: { numDays: parseInt(e.target.value) || 1 } })}
+            onChange={e => upd({ numDays: parseInt(e.target.value) || 1 })}
           />
         </div>
+      )}
+
+      <div className="grid grid-cols-3 gap-3">
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Ora di inizio</label>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Ora inizio</label>
           <input type="time"
-            className="w-full bg-gray-800 border border-gray-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full bg-gray-800 border border-gray-600 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={config.startTime}
-            onChange={e => dispatch({ type: 'UPDATE_CONFIG', payload: { startTime: e.target.value } })}
+            onChange={e => upd({ startTime: e.target.value })}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Durata partita (min)</label>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Durata (min)</label>
           <input type="number" min="20" max="180" step="5"
-            className="w-full bg-gray-800 border border-gray-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full bg-gray-800 border border-gray-600 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={config.matchDurationMinutes}
-            onChange={e => dispatch({ type: 'UPDATE_CONFIG', payload: { matchDurationMinutes: parseInt(e.target.value) || 60 } })}
+            onChange={e => upd({ matchDurationMinutes: parseInt(e.target.value) || 60 })}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Slot orari per giorno</label>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Slot/giorno</label>
           <input type="number" min="1" max="16"
-            className="w-full bg-gray-800 border border-gray-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full bg-gray-800 border border-gray-600 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={config.slotsPerDay}
-            onChange={e => dispatch({ type: 'UPDATE_CONFIG', payload: { slotsPerDay: parseInt(e.target.value) || 8 } })}
+            onChange={e => upd({ slotsPerDay: parseInt(e.target.value) || 8 })}
           />
         </div>
       </div>

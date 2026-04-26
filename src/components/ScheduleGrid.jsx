@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { useTournament } from '../store/tournamentStore'
 import MatchCard from './MatchCard'
 import { calcSlotTime } from '../utils/time'
+import { formatDateShort } from '../utils/dates'
 import { Clock, Pencil } from 'lucide-react'
 
 export { calcSlotTime }
@@ -119,10 +120,18 @@ export default function ScheduleGrid() {
           <div className="w-[72px] flex-shrink-0" />
           {days.map(d => {
             const cnt = Object.keys(schedule).filter(k => k.startsWith(`d${d}-`)).length
+            const dateStr = config.playingDays?.[d]
             return (
               <div key={d} className="w-44 flex-shrink-0">
                 <div className="bg-gray-800 rounded-xl px-3 py-2 text-center">
-                  <div className="text-xs font-bold uppercase tracking-wider text-blue-400">Giorno {d + 1}</div>
+                  {dateStr ? (
+                    <>
+                      <div className="text-xs font-bold text-blue-400">{formatDateShort(dateStr)}</div>
+                      <div className="text-[10px] text-gray-600">Giorno {d + 1}</div>
+                    </>
+                  ) : (
+                    <div className="text-xs font-bold uppercase tracking-wider text-blue-400">Giorno {d + 1}</div>
+                  )}
                   <div className="text-xs text-gray-500 mt-0.5">{cnt} partite</div>
                 </div>
               </div>

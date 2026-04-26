@@ -1,5 +1,6 @@
 import { useTournament } from '../store/tournamentStore'
 import { calcSlotTime } from '../utils/time'
+import { formatDateFull } from '../utils/dates'
 import { Download, Printer, ArrowLeft, Calendar, Users } from 'lucide-react'
 
 export default function ExportPanel() {
@@ -99,7 +100,9 @@ export default function ExportPanel() {
           return (
             <div key={d} className="bg-gray-900 print:bg-white border border-gray-700 print:border-gray-300 rounded-2xl overflow-hidden print-table">
               <div className="bg-gray-800 print:bg-gray-100 px-5 py-3 flex items-center gap-3">
-                <span className="font-bold text-white print:text-black">Giorno {d + 1}</span>
+                <span className="font-bold text-white print:text-black">
+                  {config.playingDays?.[d] ? formatDateFull(config.playingDays[d]) : `Giorno ${d + 1}`}
+                </span>
                 <span className="text-gray-400 print:text-gray-600 text-sm">{dayMatches.length} partite</span>
               </div>
               <table className="w-full">

@@ -1,6 +1,7 @@
 import { createContext, useContext, useReducer } from 'react'
 import { calcSlotTime, timeToMinutes } from '../utils/time'
 import { resolveAllMatches } from '../utils/placeholders'
+import { computePlayingDays, formatDateShort } from '../utils/dates'
 
 const TEAM_COLORS = [
   '#3B82F6','#EF4444','#10B981','#F59E0B',
@@ -223,6 +224,12 @@ function shuffleArray(arr) {
 
 // ─── Violations ────────────────────────────────────────────────────────────
 
+function dayLabel(dayIdx, config) {
+  return config.playingDays?.[dayIdx]
+    ? formatDateShort(config.playingDays[dayIdx])
+    : `Giorno ${dayIdx + 1}`
+}
+
 function computeViolations(schedule, matches, teams, constraints, config) {
   const violations = []
   const matchMap = Object.fromEntries(matches.map(m => [m.id, m]))
@@ -253,7 +260,7 @@ function computeViolations(schedule, matches, teams, constraints, config) {
           type: 'double_day',
           severity: 'error',
           matchIds: entries.map(e => e.matchId),
-          message: `${teamName} gioca ${entries.length}× il Giorno ${parseInt(day) + 1} (doppio vietato)`,
+          message: `${teamName} gioca ${entries.length}× il ${dayLabel(parseInt(day), config)} (doppio vietato)`,
         })
       }
       if (entries.length > 1 && constraints.minRestMinutes > 0) {
@@ -269,7 +276,7 @@ function computeViolations(schedule, matches, teams, constraints, config) {
               type: 'min_rest',
               severity: restMinutes <= 0 ? 'error' : 'warning',
               matchIds: [sorted[i].matchId, sorted[i + 1].matchId],
-              message: `${teamName}: riposo ${restLabel} il Giorno ${parseInt(day) + 1} (min: ${constraints.minRestMinutes}min)`,
+              message: `${teamName}: riposo ${restLabel} il ${dayLabel(parseInt(day), config)} (min: ${constraints.minRestMinutes}min)`,
             })
           }
         }
@@ -290,7 +297,7 @@ function computeViolations(schedule, matches, teams, constraints, config) {
         type: 'max_per_day',
         severity: 'error',
         matchIds: [],
-        message: `Giorno ${parseInt(day) + 1}: ${count} partite (max ${constraints.maxMatchesPerDay})`,
+        message: `${dayLabel(parseInt(day), config)}: ${count} partite (max ${constraints.maxMatchesPerDay})`,
       })
     }
   })
@@ -310,7 +317,11 @@ const initialState = {
     startTime: '09:00',
     slotIntervalMinutes: 90,
     slotsPerDay: 8,
-    slotTimes: {},   // { slotIdx: "HH:MM" } – per-slot time overrides
+    slotTimes: {},
+    startDate: '',
+    endDate: '',
+    excludedDates: [],
+    playingDays: [],   // computed from startDate/endDate/excludedDates
   },
   format: {
     type: 'groups_knockout',
@@ -337,8 +348,15 @@ function reducer(state, action) {
     case 'SET_STEP':
       return { ...state, step: action.payload }
 
-    case 'UPDATE_CONFIG':
-      return { ...state, config: { ...state.config, ...action.payload } }
+    case 'UPDATE_CONFIG': {
+      const newConfig = { ...state.config, ...action.payload }
+      if ('startDate' in action.payload || 'endDate' in action.payload || 'excludedDates' in action.payload) {
+        const days = computePlayingDays(newConfig.startDate, newConfig.endDate, newConfig.excludedDates)
+        newConfig.playingDays = days
+        if (days.length > 0) newConfig.numDays = days.length
+      }
+      return { ...state, config: newConfig }
+    }
 
     case 'UPDATE_FORMAT':
       return { ...state, format: { ...state.format, ...action.payload } }
