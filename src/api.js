@@ -32,3 +32,7 @@ export const saveTournament   = (id, name, sport, data) =>
     : req('/tournaments',       { method: 'POST', body: JSON.stringify({ name, sport, data }) })
 
 export const deleteTournament = (id) => req(`/tournaments/${id}`, { method: 'DELETE' })
+
+export const fetchFormats = () => req('/formats')
+export const saveFormat   = (name, text) => req('/formats', { method: 'POST', body: JSON.stringify({ name, text }) })
+export const deleteFormat = (id) => req(`/formats/${id}`, { method: 'DELETE' })

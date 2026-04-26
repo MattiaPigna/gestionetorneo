@@ -1,10 +1,11 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useTournament, generateId } from '../store/tournamentStore'
 import { parsePlaceholderRef, isValidPlaceholder, placeholderLabel } from '../utils/placeholders'
+import { fetchFormats, saveFormat, deleteFormat } from '../api'
 import {
   ChevronLeft, Wand2, FileText, AlertTriangle,
   CheckCircle, Copy, Layers, Trophy, GitBranch,
-  Tag, ArrowRight
+  Tag, ArrowRight, Save, Trash2, RefreshCw, BookOpen
 } from 'lucide-react'
 
 // ─── Parser ──────────────────────────────────────────────────────────────────
@@ -295,8 +296,54 @@ export default function FormatTextEditor({ onBack, onGenerate }) {
   const [text, setText] = useState(() => buildTemplate('custom', teams))
   const [copied, setCopied] = useState(false)
 
+  // Saved formats
+  const [savedFormats, setSavedFormats] = useState([])
+  const [loadingFormats, setLoadingFormats] = useState(false)
+  const [savingFormat, setSavingFormat] = useState(false)
+  const [deletingId, setDeletingId] = useState(null)
+  const [formatName, setFormatName] = useState('')
+  const [showSaveInput, setShowSaveInput] = useState(false)
+  const [formatError, setFormatError] = useState('')
+
   const { matches, errors, warnings } = useMemo(() => parseFormatText(text, teams), [text, teams])
   const canGenerate = matches.length > 0 && errors.length === 0
+
+  const loadFormats = useCallback(async () => {
+    setLoadingFormats(true)
+    try {
+      setSavedFormats(await fetchFormats())
+    } catch { /* silently ignore — user may not be logged in */ }
+    finally { setLoadingFormats(false) }
+  }, [])
+
+  useEffect(() => { loadFormats() }, [loadFormats])
+
+  const handleSaveFormat = async () => {
+    const name = formatName.trim()
+    if (!name || !text.trim()) return
+    setSavingFormat(true)
+    setFormatError('')
+    try {
+      const row = await saveFormat(name, text)
+      setSavedFormats(prev => [row, ...prev])
+      setFormatName('')
+      setShowSaveInput(false)
+    } catch (e) {
+      setFormatError(e.message)
+    } finally {
+      setSavingFormat(false)
+    }
+  }
+
+  const handleDeleteFormat = async (id, e) => {
+    e.stopPropagation()
+    setDeletingId(id)
+    try {
+      await deleteFormat(id)
+      setSavedFormats(prev => prev.filter(f => f.id !== id))
+    } catch { /* ignore */ }
+    finally { setDeletingId(null) }
+  }
 
   const copyTeams = () => {
     navigator.clipboard.writeText(teams.map(t => t.name).join(', '))
@@ -320,6 +367,73 @@ export default function FormatTextEditor({ onBack, onGenerate }) {
               </button>
             )
           })}
+        </div>
+      </div>
+
+      {/* Saved formats */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold flex items-center gap-1.5">
+            <BookOpen size={11} /> Formati salvati
+          </div>
+          <button
+            onClick={() => { setShowSaveInput(s => !s); setFormatError('') }}
+            className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+          >
+            <Save size={10} /> Salva corrente
+          </button>
+        </div>
+
+        {showSaveInput && (
+          <div className="flex gap-2 mb-2">
+            <input
+              type="text"
+              value={formatName}
+              onChange={e => setFormatName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSaveFormat()}
+              placeholder="Nome del formato..."
+              className="flex-1 bg-gray-800 border border-gray-600 rounded-lg px-3 py-1.5 text-white text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+              autoFocus
+            />
+            <button
+              onClick={handleSaveFormat}
+              disabled={savingFormat || !formatName.trim()}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white text-xs rounded-lg transition-all"
+            >
+              {savingFormat ? <RefreshCw size={10} className="animate-spin" /> : <Save size={10} />}
+              Salva
+            </button>
+          </div>
+        )}
+        {formatError && (
+          <div className="text-xs text-red-400 mb-2">{formatError}</div>
+        )}
+
+        <div className="flex gap-1.5 flex-wrap min-h-[24px]">
+          {loadingFormats && <span className="text-[10px] text-gray-600 flex items-center gap-1"><RefreshCw size={9} className="animate-spin" /> Caricamento...</span>}
+          {!loadingFormats && savedFormats.length === 0 && (
+            <span className="text-[10px] text-gray-600">Nessun formato salvato</span>
+          )}
+          {savedFormats.map(f => (
+            <span
+              key={f.id}
+              onClick={() => setText(f.text)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-full text-xs text-gray-200 cursor-pointer transition-all group"
+              title={`Carica "${f.name}"`}
+            >
+              {f.name}
+              <button
+                onClick={e => handleDeleteFormat(f.id, e)}
+                disabled={deletingId === f.id}
+                className="text-gray-500 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+              >
+                {deletingId === f.id
+                  ? <RefreshCw size={9} className="animate-spin" />
+                  : <Trash2 size={9} />
+                }
+              </button>
+            </span>
+          ))}
         </div>
       </div>
 

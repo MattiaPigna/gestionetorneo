@@ -26,6 +26,13 @@ async function initDb() {
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
+    CREATE TABLE IF NOT EXISTS formats (
+      id         SERIAL PRIMARY KEY,
+      user_id    INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      name       TEXT NOT NULL,
+      text       TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
   `)
 }
 
@@ -149,6 +156,32 @@ exports.handler = async (event) => {
     // ── DELETE /tournaments/:id ───────────────────────────────────────────────
     if (resource === 'tournaments' && resourceId && method === 'DELETE') {
       await pool.query('DELETE FROM tournaments WHERE id = $1 AND user_id = $2', [resourceId, user.userId])
+      return ok({ ok: true })
+    }
+
+    // ── GET /formats ──────────────────────────────────────────────────────────
+    if (resource === 'formats' && !resourceId && method === 'GET') {
+      const { rows } = await pool.query(
+        'SELECT * FROM formats WHERE user_id = $1 ORDER BY created_at DESC',
+        [user.userId]
+      )
+      return ok(rows)
+    }
+
+    // ── POST /formats ─────────────────────────────────────────────────────────
+    if (resource === 'formats' && !resourceId && method === 'POST') {
+      const { name, text } = body
+      if (!name || !text) return fail('name e text sono richiesti')
+      const { rows } = await pool.query(
+        'INSERT INTO formats (user_id, name, text) VALUES ($1, $2, $3) RETURNING *',
+        [user.userId, name, text]
+      )
+      return ok(rows[0], 201)
+    }
+
+    // ── DELETE /formats/:id ───────────────────────────────────────────────────
+    if (resource === 'formats' && resourceId && method === 'DELETE') {
+      await pool.query('DELETE FROM formats WHERE id = $1 AND user_id = $2', [resourceId, user.userId])
       return ok({ ok: true })
     }
 
