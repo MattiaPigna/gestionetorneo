@@ -211,6 +211,16 @@ export function generateMatchesFromFormat(teams, format) {
     return matches
   }
 
+  // ── Doppia Eliminazione ──
+  if (type === 'double_elimination') {
+    return generateDoubleEliminationMatches(teams, format)
+  }
+
+  // ── Sistema Svizzero ──
+  if (type === 'swiss') {
+    return generateSwissMatches(teams, format)
+  }
+
   return matches
 }
 
@@ -220,6 +230,182 @@ function shuffleArray(arr) {
     [arr[i], arr[j]] = [arr[j], arr[i]]
   }
   return arr
+}
+
+// ─── Double Elimination ────────────────────────────────────────────────────
+
+function wbRoundName(size) {
+  if (size === 2) return 'WB Finale'
+  if (size === 4) return 'WB Semifinale'
+  if (size === 8) return 'WB Quarti'
+  return `WB Round ${Math.log2(size)}`
+}
+
+function generateDoubleEliminationMatches(teams, format) {
+  const { seeded = false } = format
+  const ordered = seeded ? [...teams] : shuffleArray([...teams])
+  const n = ordered.length
+  if (n < 2) return []
+
+  const bs = nextPow2(n)
+  const matches = []
+  let wbNum = 0, lbNum = 0
+
+  // Slot types: { type:'team', teamId } | { type:'ref', label, refType:'winner'|'loser' } | null
+  let wbSlots = [
+    ...ordered.map(t => ({ type: 'team', teamId: t.id })),
+    ...Array(bs - n).fill(null),
+  ]
+
+  const wbRounds = [] // Array<Array<{ id, label }>>
+  const lbInputs = {} // lbRoundIdx → [{ type:'ref', label, refType:'loser' }]
+
+  // ── Winner's Bracket ──
+  while (wbSlots.length > 1) {
+    const size = wbSlots.length
+    const roundName = wbRoundName(size)
+    const nextSlots = []
+    const roundMatches = []
+
+    for (let i = 0; i < size; i += 2) {
+      const a = wbSlots[i]
+      const b = wbSlots[i + 1]
+      if (!a && !b) { nextSlots.push(null); continue }
+      if (!b) { nextSlots.push(a); continue }
+      if (!a) { nextSlots.push(b); continue }
+
+      wbNum++
+      const id = generateId()
+      const label = `W${wbNum}`
+      const slotToRef = s => s.type === 'team' ? null : `${s.refType === 'winner' ? 'Vin.' : 'Perd.'} ${s.label}`
+
+      matches.push({
+        id, label, round: roundName,
+        phase: 'winners', bracket: 'double_elimination',
+        team1Id: a.type === 'team' ? a.teamId : null,
+        team2Id: b.type === 'team' ? b.teamId : null,
+        placeholder1: slotToRef(a),
+        placeholder2: slotToRef(b),
+      })
+      roundMatches.push({ id, label })
+      nextSlots.push({ type: 'ref', label, refType: 'winner' })
+    }
+
+    const wbRoundIdx = wbRounds.length
+    const lbRoundIdx = wbRoundIdx === 0 ? 0 : 2 * wbRoundIdx - 1
+    if (!lbInputs[lbRoundIdx]) lbInputs[lbRoundIdx] = []
+    roundMatches.forEach(({ label }) =>
+      lbInputs[lbRoundIdx].push({ type: 'ref', label, refType: 'loser' })
+    )
+    wbRounds.push(roundMatches)
+    wbSlots = nextSlots
+  }
+
+  const wbfMatch = wbRounds[wbRounds.length - 1]?.[0]
+  const totalLBRounds = 2 * (wbRounds.length - 1)
+  let currentLBSlots = null
+
+  // ── Loser's Bracket ──
+  for (let lbr = 0; lbr < totalLBRounds; lbr++) {
+    const dropIns = lbInputs[lbr] || []
+    const isConsolidation = lbr > 0 && lbr % 2 === 0
+    const isLBF = lbr === totalLBRounds - 1
+    const roundName = isLBF ? 'LB Finale' : `LB Round ${lbr + 1}`
+
+    let lbSlots
+    if (lbr === 0) {
+      lbSlots = dropIns
+    } else if (isConsolidation) {
+      lbSlots = currentLBSlots
+    } else {
+      lbSlots = []
+      const survivors = currentLBSlots || []
+      for (let i = 0; i < Math.max(survivors.length, dropIns.length); i++) {
+        if (survivors[i]) lbSlots.push(survivors[i])
+        if (dropIns[i]) lbSlots.push(dropIns[i])
+      }
+    }
+
+    const nextLBSlots = []
+    for (let i = 0; i + 1 < lbSlots.length; i += 2) {
+      const a = lbSlots[i], b = lbSlots[i + 1]
+      if (!a && !b) { nextLBSlots.push(null); continue }
+      if (!b) { nextLBSlots.push(a); continue }
+      if (!a) { nextLBSlots.push(b); continue }
+
+      lbNum++
+      const id = generateId()
+      const label = `L${lbNum}`
+      const slotToRef = s => s.type === 'team' ? null : `${s.refType === 'winner' ? 'Vin.' : 'Perd.'} ${s.label}`
+
+      matches.push({
+        id, label, round: roundName,
+        phase: 'losers', bracket: 'double_elimination',
+        team1Id: null, team2Id: null,
+        placeholder1: slotToRef(a),
+        placeholder2: slotToRef(b),
+      })
+      nextLBSlots.push({ type: 'ref', label, refType: 'winner' })
+    }
+    if (lbSlots.length % 2 !== 0) nextLBSlots.push(lbSlots[lbSlots.length - 1])
+    currentLBSlots = nextLBSlots
+  }
+
+  // ── Grand Final ──
+  if (wbfMatch && currentLBSlots?.length === 1) {
+    matches.push({
+      id: generateId(), label: 'GF', round: 'Grande Finale',
+      phase: 'knockout', bracket: 'double_elimination',
+      team1Id: null, team2Id: null,
+      placeholder1: `Vin. ${wbfMatch.label}`,
+      placeholder2: `Vin. ${currentLBSlots[0]?.label}`,
+    })
+  }
+
+  return matches
+}
+
+// ─── Swiss System ─────────────────────────────────────────────────────────
+
+function generateSwissMatches(teams, format) {
+  const { swissRounds = 5, seeded = false } = format
+  const ordered = seeded ? [...teams] : shuffleArray([...teams])
+  const n = ordered.length
+  if (n < 2) return []
+
+  const matches = []
+  const matchesPerRound = Math.floor(n / 2)
+
+  // Round 1: actual random pairings
+  for (let i = 0; i < matchesPerRound; i++) {
+    matches.push({
+      id: generateId(),
+      team1Id: ordered[i * 2].id,
+      team2Id: ordered[i * 2 + 1].id,
+      label: `S1-${i + 1}`,
+      round: 'Turno 1',
+      phase: 'group',
+      bracket: null,
+    })
+  }
+
+  // Rounds 2+: TBD (require manual pairing after standings)
+  for (let r = 2; r <= swissRounds; r++) {
+    for (let i = 0; i < matchesPerRound; i++) {
+      matches.push({
+        id: generateId(),
+        team1Id: null, team2Id: null,
+        label: `S${r}-${i + 1}`,
+        round: `Turno ${r}`,
+        phase: 'group',
+        bracket: null,
+        placeholder1: 'Da definire',
+        placeholder2: 'Da definire',
+      })
+    }
+  }
+
+  return matches
 }
 
 // ─── Violations ────────────────────────────────────────────────────────────
@@ -330,6 +516,7 @@ const initialState = {
     advancePerGroup: 2,
     hasThirdPlace: true,
     seeded: false,
+    swissRounds: 5,
   },
   constraints: {
     allowDoubleDay: false,
@@ -474,7 +661,7 @@ function reducer(state, action) {
       })
 
       for (const match of sorted) {
-        if (match.bracket === 'knockout' && !match.team1Id) continue
+        if (!match.team1Id && !match.team2Id) continue
         let placed = false
         for (let d = 0; d < config.numDays && !placed; d++) {
           for (let s = 0; s < config.slotsPerDay && !placed; s++) {

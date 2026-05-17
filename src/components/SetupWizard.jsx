@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { useTournament } from '../store/tournamentStore'
 import FormatTextEditor from './FormatTextEditor'
+import FormatBuilder from './FormatBuilder'
+import FormatChatbot from './FormatChatbot'
 import { allDatesInRange, computePlayingDays, dowMon, buildCalendarCells, getMonthLabel } from '../utils/dates'
 import {
   Trophy, Users, Settings, ChevronRight, ChevronLeft,
-  Plus, Trash2, Shuffle, Wand2
+  Plus, Trash2, Shuffle, Wand2, SlidersHorizontal, Bot, Code2
 } from 'lucide-react'
 
 const SPORTS = ['Calcio', 'Pallavolo', 'Basket', 'Tennis', 'Padel', 'Rugby', 'Altro']
@@ -483,6 +485,71 @@ function SliderRow({ label, value, min, max, onChange, suffix }) {
   )
 }
 
+// ─── Step 4: Formato ─────────────────────────────────────────────────────────
+
+const FORMAT_MODES = [
+  { id: 'builder', icon: SlidersHorizontal, label: 'Guidato', desc: 'Seleziona formato con slider' },
+  { id: 'chat',    icon: Bot,               label: 'Chatbot',  desc: 'Descrivi a parole libere' },
+  { id: 'custom',  icon: Code2,             label: 'Avanzato', desc: 'Testo personalizzato' },
+]
+
+function Step4({ onBack, onGenerate }) {
+  const { state, dispatch } = useTournament()
+  const [mode, setMode] = useState('builder')
+
+  const hasSchedule = Object.keys(state.schedule).length > 0
+
+  const handleFormatGenerate = (format) => {
+    if (hasSchedule && !confirm('Rigenerare le partite azzererà il calendario già pianificato. Continuare?')) return
+    dispatch({ type: 'GENERATE_MATCHES', payload: format })
+    setTimeout(() => dispatch({ type: 'SET_STEP', payload: 'build' }), 50)
+  }
+
+  const handleTextGenerate = (parsedMatches) => {
+    if (hasSchedule && !confirm('Rigenerare le partite azzererà il calendario già pianificato. Continuare?')) return
+    dispatch({ type: 'SET_MATCHES_FROM_TEXT', payload: parsedMatches })
+    setTimeout(() => dispatch({ type: 'SET_STEP', payload: 'build' }), 50)
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Mode selector */}
+      <div className="grid grid-cols-3 gap-2">
+        {FORMAT_MODES.map(m => {
+          const Icon = m.icon
+          const active = mode === m.id
+          return (
+            <button
+              key={m.id}
+              onClick={() => setMode(m.id)}
+              className={`text-left p-2.5 rounded-xl border-2 transition-all ${
+                active ? 'border-blue-500 bg-blue-950/40' : 'border-gray-700 bg-gray-800 hover:border-gray-500'
+              }`}
+            >
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <Icon size={13} className={active ? 'text-blue-400' : 'text-gray-400'} />
+                <span className={`text-xs font-semibold ${active ? 'text-white' : 'text-gray-300'}`}>{m.label}</span>
+              </div>
+              <p className="text-[10px] text-gray-500 leading-tight">{m.desc}</p>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Mode content */}
+      {mode === 'builder' && (
+        <FormatBuilder onBack={onBack} onGenerate={handleFormatGenerate} />
+      )}
+      {mode === 'chat' && (
+        <FormatChatbot onBack={onBack} onGenerate={handleFormatGenerate} />
+      )}
+      {mode === 'custom' && (
+        <FormatTextEditor onBack={onBack} onGenerate={handleTextGenerate} />
+      )}
+    </div>
+  )
+}
+
 // ─── Step titles ─────────────────────────────────────────────────────────────
 
 const STEP_LABELS = ['Info', 'Squadre', 'Regole', 'Formato']
@@ -498,12 +565,6 @@ export default function SetupWizard() {
   const hasSchedule = Object.keys(state.schedule).length > 0
 
   const backToBuilder = () => dispatch({ type: 'SET_STEP', payload: 'build' })
-
-  const goToBuild = (parsedMatches) => {
-    if (hasSchedule && !confirm('Rigenerare le partite azzererà il calendario già pianificato. Continuare?')) return
-    dispatch({ type: 'SET_MATCHES_FROM_TEXT', payload: parsedMatches })
-    setTimeout(() => dispatch({ type: 'SET_STEP', payload: 'build' }), 50)
-  }
 
   const Icon = STEP_ICONS[step]
 
@@ -537,7 +598,7 @@ export default function SetupWizard() {
           {step === 0 && <Step1 onNext={() => setStep(1)} />}
           {step === 1 && <Step2 onNext={() => setStep(2)} onBack={() => setStep(0)} />}
           {step === 2 && <Step3 onNext={() => setStep(3)} onBack={() => setStep(1)} />}
-          {step === 3 && <FormatTextEditor onBack={() => setStep(2)} onGenerate={goToBuild} />}
+          {step === 3 && <Step4 onBack={() => setStep(2)} />}
         </div>
       </div>
     </div>

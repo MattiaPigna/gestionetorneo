@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTournament } from '../store/tournamentStore'
 import { placeholderLabel } from '../utils/placeholders'
-import { Check, Pencil, Trophy } from 'lucide-react'
+import { Check, Pencil, Trophy, RefreshCw, Star } from 'lucide-react'
 
 const CARD_W   = 200
 const CARD_H   = 76
@@ -265,11 +265,177 @@ function GroupStandings({ matches, teams }) {
   )
 }
 
+// ─── Double Elimination view ──────────────────────────────────────────────────
+
+function DEMatchRow({ match, teams }) {
+  const { dispatch } = useTournament()
+  const t1 = teams.find(t => t.id === match.team1Id)
+  const t2 = teams.find(t => t.id === match.team2Id)
+  const played = match.result?.status === 'played'
+
+  return (
+    <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg border ${played ? 'border-emerald-700/40 bg-emerald-900/10' : 'border-gray-700 bg-gray-800/50'}`}>
+      <span className="text-gray-500 w-8 flex-shrink-0 font-mono">{match.label}</span>
+      <span className={t1 ? 'text-white' : 'text-gray-500 italic'}>{t1?.name || match.placeholder1 || '?'}</span>
+      <span className="text-gray-600">vs</span>
+      <span className={t2 ? 'text-white' : 'text-gray-500 italic'}>{t2?.name || match.placeholder2 || '?'}</span>
+      {played && <span className="ml-auto text-emerald-400 font-bold">{match.result.score1} – {match.result.score2}</span>}
+    </div>
+  )
+}
+
+function DoubleEliminationView({ matches, teams }) {
+  const wbMatches = matches.filter(m => m.phase === 'winners')
+  const lbMatches = matches.filter(m => m.phase === 'losers')
+  const gfMatches = matches.filter(m => m.round === 'Grande Finale')
+
+  const wbByRound = {}
+  wbMatches.forEach(m => { if (!wbByRound[m.round]) wbByRound[m.round] = []; wbByRound[m.round].push(m) })
+  const lbByRound = {}
+  lbMatches.forEach(m => { if (!lbByRound[m.round]) lbByRound[m.round] = []; lbByRound[m.round].push(m) })
+
+  return (
+    <div className="p-4 space-y-6 overflow-auto h-full">
+      {/* Winner's Bracket */}
+      <div>
+        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-blue-400 mb-3">
+          <RefreshCw size={12} /> Tabellone Vincitori (WB)
+        </div>
+        <div className="space-y-3">
+          {Object.entries(wbByRound).map(([round, ms]) => (
+            <div key={round}>
+              <div className="text-[10px] text-gray-500 mb-1.5 font-medium">{round}</div>
+              <div className="space-y-1">
+                {ms.map(m => <DEMatchRow key={m.id} match={m} teams={teams} />)}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Loser's Bracket */}
+      {lbMatches.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-rose-400 mb-3">
+            <RefreshCw size={12} /> Tabellone Perdenti (LB)
+          </div>
+          <div className="space-y-3">
+            {Object.entries(lbByRound).map(([round, ms]) => (
+              <div key={round}>
+                <div className="text-[10px] text-gray-500 mb-1.5 font-medium">{round}</div>
+                <div className="space-y-1">
+                  {ms.map(m => <DEMatchRow key={m.id} match={m} teams={teams} />)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Grand Final */}
+      {gfMatches.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-400 mb-3">
+            <Trophy size={12} /> Grande Finale
+          </div>
+          <div className="space-y-1">
+            {gfMatches.map(m => <DEMatchRow key={m.id} match={m} teams={teams} />)}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Swiss standings view ─────────────────────────────────────────────────────
+
+function SwissView({ matches, teams }) {
+  const teamMap = Object.fromEntries(teams.map(t => [t.id, t]))
+  const standings = {}
+  teams.forEach(t => { standings[t.id] = { w: 0, d: 0, l: 0, pts: 0, played: 0 } })
+
+  matches.forEach(m => {
+    if (!m.result || m.result.status !== 'played') return
+    if (!m.team1Id || !m.team2Id) return
+    const s1 = parseInt(m.result.score1), s2 = parseInt(m.result.score2)
+    if (isNaN(s1) || isNaN(s2)) return
+    if (!standings[m.team1Id]) standings[m.team1Id] = { w: 0, d: 0, l: 0, pts: 0, played: 0 }
+    if (!standings[m.team2Id]) standings[m.team2Id] = { w: 0, d: 0, l: 0, pts: 0, played: 0 }
+    standings[m.team1Id].played++; standings[m.team2Id].played++
+    if (s1 > s2) { standings[m.team1Id].w++; standings[m.team1Id].pts += 3; standings[m.team2Id].l++ }
+    else if (s2 > s1) { standings[m.team2Id].w++; standings[m.team2Id].pts += 3; standings[m.team1Id].l++ }
+    else { standings[m.team1Id].d++; standings[m.team1Id].pts++; standings[m.team2Id].d++; standings[m.team2Id].pts++ }
+  })
+
+  const rows = Object.entries(standings).sort(([,a],[,b]) => b.pts - a.pts || b.w - a.w)
+
+  const byRound = {}
+  matches.forEach(m => { if (!byRound[m.round]) byRound[m.round] = []; byRound[m.round].push(m) })
+
+  return (
+    <div className="p-4 space-y-5 overflow-auto h-full">
+      <div>
+        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-teal-400 mb-3">
+          <Star size={12} /> Classifica Svizzero
+        </div>
+        <div className="bg-gray-800/60 border border-gray-700 rounded-xl overflow-hidden">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-gray-500 border-b border-gray-700">
+                <th className="text-left px-3 py-1.5">#</th>
+                <th className="text-left px-3 py-1.5">Squadra</th>
+                <th className="px-2 py-1.5">G</th>
+                <th className="px-2 py-1.5 text-emerald-400">V</th>
+                <th className="px-2 py-1.5">P</th>
+                <th className="px-2 py-1.5 text-red-400">S</th>
+                <th className="px-2 py-1.5 font-bold text-white">Pt</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(([tid, s], i) => {
+                const team = teamMap[tid]
+                return (
+                  <tr key={tid} className="border-b border-gray-700/40">
+                    <td className="px-3 py-1.5 text-gray-500">{i + 1}</td>
+                    <td className="px-3 py-1.5 flex items-center gap-1.5">
+                      {team && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: team.color }} />}
+                      <span className="text-white">{team?.name || tid}</span>
+                    </td>
+                    <td className="text-center px-2 py-1.5 text-gray-400">{s.played}</td>
+                    <td className="text-center px-2 py-1.5 text-emerald-400">{s.w}</td>
+                    <td className="text-center px-2 py-1.5 text-gray-400">{s.d}</td>
+                    <td className="text-center px-2 py-1.5 text-red-400">{s.l}</td>
+                    <td className="text-center px-2 py-1.5 font-bold text-white">{s.pts}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <div className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">Partite per Turno</div>
+        {Object.entries(byRound).map(([round, ms]) => (
+          <div key={round} className="mb-3">
+            <div className="text-[10px] text-gray-500 mb-1.5 font-medium">{round}</div>
+            <div className="space-y-1">
+              {ms.map(m => <DEMatchRow key={m.id} match={m} teams={teams} />)}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ─── Main bracket ─────────────────────────────────────────────────────────────
 
 export default function BracketView() {
   const { state } = useTournament()
-  const { matches, teams } = state
+  const { matches, teams, format } = state
+
+  if (format?.type === 'double_elimination') return <DoubleEliminationView matches={matches} teams={teams} />
+  if (format?.type === 'swiss') return <SwissView matches={matches} teams={teams} />
 
   const knockoutAll = matches.filter(m => m.phase === 'knockout' || m.bracket === 'knockout')
   const thirdPlace  = knockoutAll.filter(m => m.round === '3° Posto')

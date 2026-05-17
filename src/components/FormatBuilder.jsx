@@ -3,7 +3,7 @@ import { useTournament } from '../store/tournamentStore'
 import { generateMatchesFromFormat } from '../store/tournamentStore'
 import {
   Trophy, Layers, GitBranch, ChevronLeft, Wand2,
-  Users, Hash, Medal, ArrowRight
+  Users, Hash, Medal, ArrowRight, RefreshCw, Star
 } from 'lucide-react'
 
 const FORMAT_TYPES = [
@@ -32,8 +32,22 @@ const FORMAT_TYPES = [
     id: 'knockout',
     icon: Trophy,
     label: 'Eliminazione Diretta',
-    desc: 'Tabellone a eliminazione, partite da definire in anticipo',
+    desc: 'Tabellone classico, eliminato alla prima sconfitta',
     color: 'amber',
+  },
+  {
+    id: 'double_elimination',
+    icon: RefreshCw,
+    label: 'Doppia Eliminazione',
+    desc: 'Due tabelloni: eliminato solo dopo 2 sconfitte',
+    color: 'rose',
+  },
+  {
+    id: 'swiss',
+    icon: Star,
+    label: 'Sistema Svizzero',
+    desc: 'Turni fissi, nessuna eliminazione, classifica a punti',
+    color: 'teal',
   },
 ]
 
@@ -42,6 +56,8 @@ const COLOR_MAP = {
   purple: 'border-purple-500 bg-purple-950/40',
   emerald: 'border-emerald-500 bg-emerald-950/40',
   amber: 'border-amber-500 bg-amber-950/40',
+  rose: 'border-rose-500 bg-rose-950/40',
+  teal: 'border-teal-500 bg-teal-950/40',
 }
 
 function countMatchesPreview(teams, format) {
@@ -82,7 +98,7 @@ export default function FormatBuilder({ onBack, onGenerate }) {
   return (
     <div className="space-y-5">
       {/* Format type selector */}
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
         {FORMAT_TYPES.map(f => {
           const Icon = f.icon
           const active = format.type === f.id
@@ -164,6 +180,54 @@ export default function FormatBuilder({ onBack, onGenerate }) {
             value={format.hasThirdPlace}
             onChange={() => upd('hasThirdPlace', !format.hasThirdPlace)}
           />
+        </div>
+      )}
+
+      {/* ── Double Elimination options ── */}
+      {format.type === 'double_elimination' && (
+        <div className="space-y-3">
+          <div className="space-y-2 bg-gray-800/50 rounded-xl p-4">
+            <ToggleRow
+              label="Sorteggio con testa di serie"
+              value={format.seeded}
+              onChange={() => upd('seeded', !format.seeded)}
+            />
+          </div>
+          <div className="bg-rose-950/20 border border-rose-800/30 rounded-xl px-4 py-3 space-y-1">
+            <p className="text-xs font-semibold text-rose-300">Come funziona</p>
+            <p className="text-xs text-gray-400">
+              Le squadre perdenti scendono nel <span className="text-rose-300">tabellone perdenti (LB)</span>.
+              Solo chi perde due volte è eliminato. La Grande Finale oppone il vincitore dei due tabelloni.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Swiss System options ── */}
+      {format.type === 'swiss' && (
+        <div className="space-y-3">
+          <div className="bg-gray-800/50 rounded-xl p-4 space-y-4">
+            <SliderRow
+              icon={Hash}
+              label="Numero di turni"
+              value={format.swissRounds ?? 5}
+              min={3} max={10}
+              onChange={v => upd('swissRounds', v)}
+              badge={`${Math.floor(n / 2) * (format.swissRounds ?? 5)} partite tot.`}
+            />
+            <ToggleRow
+              label="Seeding 1° turno (ordinato)"
+              value={format.seeded}
+              onChange={() => upd('seeded', !format.seeded)}
+            />
+          </div>
+          <div className="bg-teal-950/20 border border-teal-800/30 rounded-xl px-4 py-3 space-y-1">
+            <p className="text-xs font-semibold text-teal-300">Come funziona</p>
+            <p className="text-xs text-gray-400">
+              Il 1° turno viene generato automaticamente. I turni successivi vanno abbinati
+              manualmente in base alla classifica. Nessuna eliminazione — tutti giocano tutti i turni.
+            </p>
+          </div>
         </div>
       )}
 
@@ -269,6 +333,16 @@ function MatchPreview({ teams, format, matchCount }) {
   } else if (format.type === 'knockout') {
     lines.push({ label: 'Partite tabellone', count: matchCount - (format.hasThirdPlace && n >= 4 ? 1 : 0), color: 'amber' })
     if (format.hasThirdPlace && n >= 4) lines.push({ label: '3° Posto', count: 1, color: 'orange' })
+  } else if (format.type === 'double_elimination') {
+    const wbMatches = nextPow2(n) - 1
+    const lbMatches = nextPow2(n) - 2
+    lines.push({ label: 'Tabellone vincitori (WB)', count: wbMatches, color: 'rose' })
+    lines.push({ label: 'Tabellone perdenti (LB)', count: lbMatches, color: 'orange' })
+    lines.push({ label: 'Grande Finale', count: 1, color: 'amber' })
+  } else if (format.type === 'swiss') {
+    const rounds = format.swissRounds ?? 5
+    const perRound = Math.floor(n / 2)
+    lines.push({ label: `${rounds} turni × ${perRound} partite`, count: perRound * rounds, color: 'teal' })
   }
 
   const colorMap = {
@@ -277,6 +351,8 @@ function MatchPreview({ teams, format, matchCount }) {
     amber: 'text-amber-300',
     orange: 'text-orange-300',
     emerald: 'text-emerald-300',
+    rose: 'text-rose-300',
+    teal: 'text-teal-300',
   }
 
   return (
