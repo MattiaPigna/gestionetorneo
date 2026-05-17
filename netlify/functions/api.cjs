@@ -64,6 +64,76 @@ exports.handler = async (event) => {
   }
 
   try {
+    // ── POST /gemini-parse (no DB needed) ─────────────────────────────────────
+    if (route === '/gemini-parse' && method === 'POST') {
+      const apiKey = process.env.GEMINI_API_KEY
+      if (!apiKey) return fail('GEMINI_API_KEY non configurata', 500)
+
+      const { text, numTeams = 8 } = body
+      if (!text?.trim()) return fail('text è richiesto')
+
+      const systemPrompt = `Sei un assistente per la configurazione di tornei sportivi. L'utente descriverà in linguaggio naturale come vuole strutturare il torneo con ${numTeams} squadre.
+
+Analizza il messaggio e restituisci SOLO un oggetto JSON valido (nessun testo aggiuntivo, nessun blocco markdown), con questa struttura:
+{
+  "type": "roundrobin|groups_knockout|groups|knockout|double_elimination|swiss",
+  "numGroups": 2,
+  "advancePerGroup": 2,
+  "hasThirdPlace": false,
+  "seeded": false,
+  "swissRounds": 5,
+  "explanation": "Breve spiegazione in italiano di cosa hai capito"
+}
+
+Tipi disponibili:
+- roundrobin: tutti contro tutti in un unico girone
+- groups_knockout: fase a gironi seguita da eliminazione diretta
+- groups: solo gironi paralleli, nessuna fase finale
+- knockout: eliminazione diretta singola (una sconfitta = fuori)
+- double_elimination: doppia eliminazione, tabellone vincitori + perdenti (due sconfitte = eliminato)
+- swiss: sistema svizzero, turni fissi, nessuna eliminazione, classifica a punti
+
+Messaggio utente: "${text.replace(/"/g, '\\"')}"`
+
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: systemPrompt }] }],
+            generationConfig: { temperature: 0.1, maxOutputTokens: 512 },
+          }),
+        }
+      )
+      if (!res.ok) {
+        const err = await res.text()
+        console.error('[gemini]', err)
+        return fail('Errore Gemini: ' + res.status, 502)
+      }
+
+      const data = await res.json()
+      const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
+      const jsonStr = raw.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim()
+
+      let parsed
+      try { parsed = JSON.parse(jsonStr) } catch {
+        return fail('Risposta Gemini non valida: ' + jsonStr, 502)
+      }
+
+      const validTypes = ['roundrobin', 'groups_knockout', 'groups', 'knockout', 'double_elimination', 'swiss']
+      const format = {
+        type:            validTypes.includes(parsed.type) ? parsed.type : 'groups_knockout',
+        numGroups:       Math.min(8, Math.max(2, parseInt(parsed.numGroups) || 2)),
+        advancePerGroup: Math.min(6, Math.max(1, parseInt(parsed.advancePerGroup) || 2)),
+        hasThirdPlace:   Boolean(parsed.hasThirdPlace),
+        seeded:          Boolean(parsed.seeded),
+        swissRounds:     Math.min(12, Math.max(3, parseInt(parsed.swissRounds) || 5)),
+      }
+
+      return ok({ format, explanation: parsed.explanation || 'Formato generato.' })
+    }
+
     if (!process.env.NETLIFY_DATABASE_URL && !process.env.DATABASE_URL) {
       return fail('DATABASE_URL non configurata — aggiungila nelle variabili d\'ambiente Netlify', 500)
     }

@@ -36,3 +36,6 @@ export const deleteTournament = (id) => req(`/tournaments/${id}`, { method: 'DEL
 export const fetchFormats = () => req('/formats')
 export const saveFormat   = (name, text) => req('/formats', { method: 'POST', body: JSON.stringify({ name, text }) })
 export const deleteFormat = (id) => req(`/formats/${id}`, { method: 'DELETE' })
+
+export const parseFormatAI = (text, numTeams) =>
+  req('/gemini-parse', { method: 'POST', body: JSON.stringify({ text, numTeams }) })
