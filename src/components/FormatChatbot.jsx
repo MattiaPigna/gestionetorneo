@@ -17,6 +17,8 @@ function parseFormatLocal(text, numTeams) {
 
   if (/doppia.elimin|double.elimin|loser.bracket/.test(t)) result.type = 'double_elimination'
   else if (/svizzer|swiss|turni.fissi/.test(t)) result.type = 'swiss'
+  else if (/andata.e.ritorno|andata.*ritorno|doppio.girone|double.round/.test(t)) result.type = 'double_roundrobin'
+  else if (/classifica.completa|piazzamento|tutti.i.posti|ogni.posizione/.test(t)) result.type = 'roundrobin_placement'
   else if (/(eliminazione.diretta|knockout|tabellone.singolo)/.test(t) && !/giron/.test(t)) result.type = 'knockout'
   else if (/tutti.contro.tutti|girone.unico|round.robin/.test(t)) result.type = 'roundrobin'
   else if (/giron|grup/.test(t)) result.type = /final|playoff|semifinal|qualific/.test(t) ? 'groups_knockout' : 'groups'
@@ -38,6 +40,7 @@ const FORMAT_LABELS = {
   groups_knockout: 'Gironi + Finale', roundrobin: 'Girone Unico',
   groups: 'Solo Gironi', knockout: 'Eliminazione Diretta',
   double_elimination: 'Doppia Eliminazione', swiss: 'Sistema Svizzero',
+  double_roundrobin: 'Andata e Ritorno', roundrobin_placement: 'Classifica Completa',
 }
 
 function FormatPreviewCard({ format, numTeams }) {

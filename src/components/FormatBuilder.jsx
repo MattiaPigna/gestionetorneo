@@ -3,7 +3,7 @@ import { useTournament } from '../store/tournamentStore'
 import { generateMatchesFromFormat } from '../store/tournamentStore'
 import {
   Trophy, Layers, GitBranch, ChevronLeft, Wand2,
-  Users, Hash, Medal, ArrowRight, RefreshCw, Star
+  Users, Hash, Medal, ArrowRight, RefreshCw, Star, List, ArrowUpDown
 } from 'lucide-react'
 
 const FORMAT_TYPES = [
@@ -11,48 +11,64 @@ const FORMAT_TYPES = [
     id: 'roundrobin',
     icon: Layers,
     label: 'Girone Unico',
-    desc: 'Tutti contro tutti in un unico girone',
+    desc: 'Tutti contro tutti',
     color: 'blue',
+  },
+  {
+    id: 'double_roundrobin',
+    icon: ArrowUpDown,
+    label: 'Andata e Ritorno',
+    desc: 'Tutti vs tutti, 2 volte',
+    color: 'cyan',
+  },
+  {
+    id: 'roundrobin_placement',
+    icon: List,
+    label: 'Classifica Completa',
+    desc: 'Round-robin + finali per ogni posizione',
+    color: 'indigo',
   },
   {
     id: 'groups_knockout',
     icon: GitBranch,
     label: 'Gironi + Finale',
-    desc: 'Fase a gironi seguita da eliminazione diretta',
+    desc: 'Gironi poi eliminazione diretta',
     color: 'purple',
   },
   {
     id: 'groups',
     icon: Layers,
     label: 'Solo Gironi',
-    desc: 'Più gironi paralleli, nessuna fase finale',
+    desc: 'Più gironi paralleli',
     color: 'emerald',
   },
   {
     id: 'knockout',
     icon: Trophy,
     label: 'Eliminazione Diretta',
-    desc: 'Tabellone classico, eliminato alla prima sconfitta',
+    desc: 'Una sconfitta = fuori',
     color: 'amber',
   },
   {
     id: 'double_elimination',
     icon: RefreshCw,
     label: 'Doppia Eliminazione',
-    desc: 'Due tabelloni: eliminato solo dopo 2 sconfitte',
+    desc: 'Eliminato solo dopo 2 sconfitte',
     color: 'rose',
   },
   {
     id: 'swiss',
     icon: Star,
     label: 'Sistema Svizzero',
-    desc: 'Turni fissi, nessuna eliminazione, classifica a punti',
+    desc: 'Turni fissi, classifica a punti',
     color: 'teal',
   },
 ]
 
 const COLOR_MAP = {
   blue: 'border-blue-500 bg-blue-950/40',
+  cyan: 'border-cyan-500 bg-cyan-950/40',
+  indigo: 'border-indigo-500 bg-indigo-950/40',
   purple: 'border-purple-500 bg-purple-950/40',
   emerald: 'border-emerald-500 bg-emerald-950/40',
   amber: 'border-amber-500 bg-amber-950/40',
@@ -98,7 +114,7 @@ export default function FormatBuilder({ onBack, onGenerate }) {
   return (
     <div className="space-y-5">
       {/* Format type selector */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {FORMAT_TYPES.map(f => {
           const Icon = f.icon
           const active = format.type === f.id
@@ -124,6 +140,22 @@ export default function FormatBuilder({ onBack, onGenerate }) {
       {/* ── Round Robin: no options ── */}
       {format.type === 'roundrobin' && (
         <InfoBox icon={Layers} text={`Con ${n} squadre: ${n * (n-1) / 2} partite totali`} />
+      )}
+
+      {/* ── Andata e Ritorno ── */}
+      {format.type === 'double_roundrobin' && (
+        <InfoBox icon={ArrowUpDown} text={`Con ${n} squadre: ${n * (n-1)} partite totali (${n*(n-1)/2} andata + ${n*(n-1)/2} ritorno)`} />
+      )}
+
+      {/* ── Classifica Completa ── */}
+      {format.type === 'roundrobin_placement' && (
+        <div className="bg-indigo-950/20 border border-indigo-800/30 rounded-xl px-4 py-3 space-y-1">
+          <p className="text-xs font-semibold text-indigo-300">Come funziona</p>
+          <p className="text-xs text-gray-400">
+            Tutti contro tutti nel girone, poi si giocano finali per <span className="text-indigo-300">ogni posizione</span>:
+            1°/2° posto, 3°/4° posto, 5°/6° posto ecc. Tutti conoscono la loro posizione finale.
+          </p>
+        </div>
       )}
 
       {/* ── Groups options ── */}
@@ -312,6 +344,12 @@ function MatchPreview({ teams, format, matchCount }) {
 
   if (format.type === 'roundrobin') {
     lines.push({ label: 'Partite girone', count: n * (n - 1) / 2, color: 'blue' })
+  } else if (format.type === 'double_roundrobin') {
+    lines.push({ label: 'Andata', count: n * (n - 1) / 2, color: 'cyan' })
+    lines.push({ label: 'Ritorno', count: n * (n - 1) / 2, color: 'cyan' })
+  } else if (format.type === 'roundrobin_placement') {
+    lines.push({ label: 'Partite girone', count: n * (n - 1) / 2, color: 'indigo' })
+    lines.push({ label: 'Finali di piazzamento', count: Math.floor(n / 2), color: 'purple' })
   } else if (format.type === 'groups' || format.type === 'groups_knockout') {
     const { numGroups, advancePerGroup, hasThirdPlace } = format
     const base = Math.floor(n / numGroups)
@@ -346,13 +384,9 @@ function MatchPreview({ teams, format, matchCount }) {
   }
 
   const colorMap = {
-    blue: 'text-blue-300',
-    purple: 'text-purple-300',
-    amber: 'text-amber-300',
-    orange: 'text-orange-300',
-    emerald: 'text-emerald-300',
-    rose: 'text-rose-300',
-    teal: 'text-teal-300',
+    blue: 'text-blue-300', cyan: 'text-cyan-300', indigo: 'text-indigo-300',
+    purple: 'text-purple-300', amber: 'text-amber-300', orange: 'text-orange-300',
+    emerald: 'text-emerald-300', rose: 'text-rose-300', teal: 'text-teal-300',
   }
 
   return (

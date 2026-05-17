@@ -87,6 +87,8 @@ Analizza il messaggio e restituisci SOLO un oggetto JSON valido (nessun testo ag
 
 Tipi disponibili:
 - roundrobin: tutti contro tutti in un unico girone
+- double_roundrobin: tutti contro tutti andata E ritorno (ogni coppia gioca 2 volte, home e away invertiti)
+- roundrobin_placement: tutti contro tutti + finali di piazzamento per OGNI posizione (1°/2°, 3°/4°, 5°/6°...)
 - groups_knockout: fase a gironi seguita da eliminazione diretta
 - groups: solo gironi paralleli, nessuna fase finale
 - knockout: eliminazione diretta singola (una sconfitta = fuori)
@@ -121,7 +123,7 @@ Messaggio utente: "${text.replace(/"/g, '\\"')}"`
         return fail('Risposta Gemini non valida: ' + jsonStr, 502)
       }
 
-      const validTypes = ['roundrobin', 'groups_knockout', 'groups', 'knockout', 'double_elimination', 'swiss']
+      const validTypes = ['roundrobin', 'double_roundrobin', 'roundrobin_placement', 'groups_knockout', 'groups', 'knockout', 'double_elimination', 'swiss']
       const format = {
         type:            validTypes.includes(parsed.type) ? parsed.type : 'groups_knockout',
         numGroups:       Math.min(8, Math.max(2, parseInt(parsed.numGroups) || 2)),

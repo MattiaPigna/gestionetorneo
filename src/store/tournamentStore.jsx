@@ -211,6 +211,50 @@ export function generateMatchesFromFormat(teams, format) {
     return matches
   }
 
+  // ── Andata e Ritorno ──
+  if (type === 'double_roundrobin') {
+    const n = teams.length
+    let cnt = 0
+    // Andata
+    for (let i = 0; i < n; i++)
+      for (let j = i + 1; j < n; j++) {
+        cnt++
+        matches.push({ id: generateId(), team1Id: teams[i].id, team2Id: teams[j].id, label: `A${cnt}`, round: 'Andata', phase: 'group', bracket: null })
+      }
+    // Ritorno (home/away invertiti)
+    let cnt2 = 0
+    for (let i = 0; i < n; i++)
+      for (let j = i + 1; j < n; j++) {
+        cnt2++
+        matches.push({ id: generateId(), team1Id: teams[j].id, team2Id: teams[i].id, label: `R${cnt2}`, round: 'Ritorno', phase: 'group', bracket: null })
+      }
+    return matches
+  }
+
+  // ── Classifica Completa (Round-Robin + Finali di Piazzamento) ──
+  if (type === 'roundrobin_placement') {
+    const n = teams.length
+    let cnt = 0
+    for (let i = 0; i < n; i++)
+      for (let j = i + 1; j < n; j++) {
+        cnt++
+        matches.push({ id: generateId(), team1Id: teams[i].id, team2Id: teams[j].id, label: `G${cnt}`, round: 'Girone', phase: 'group', bracket: null })
+      }
+    // Placement matches: 1°/2°, 3°/4°, 5°/6°, ...
+    for (let pos = 1; pos + 1 <= n; pos += 2) {
+      const isFirst = pos === 1
+      matches.push({
+        id: generateId(), team1Id: null, team2Id: null,
+        label: `${pos}°-${pos + 1}°`,
+        round: isFirst ? 'Finale' : `${pos}°/${pos + 1}° Posto`,
+        phase: 'placement', bracket: 'placement',
+        placeholder1: `${pos}° Classifica`,
+        placeholder2: `${pos + 1}° Classifica`,
+      })
+    }
+    return matches
+  }
+
   // ── Doppia Eliminazione ──
   if (type === 'double_elimination') {
     return generateDoubleEliminationMatches(teams, format)

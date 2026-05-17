@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTournament } from '../store/tournamentStore'
 import { placeholderLabel } from '../utils/placeholders'
-import { Check, Pencil, Trophy, RefreshCw, Star } from 'lucide-react'
+import { Check, Pencil, Trophy, RefreshCw, Star, ArrowUpDown, List } from 'lucide-react'
 
 const CARD_W   = 200
 const CARD_H   = 76
@@ -265,6 +265,223 @@ function GroupStandings({ matches, teams }) {
   )
 }
 
+// ─── Combined standings (for double_roundrobin) ───────────────────────────────
+
+function CombinedStandings({ matches, teams }) {
+  const teamMap = Object.fromEntries(teams.map(t => [t.id, t]))
+  const st = {}
+  teams.forEach(t => { st[t.id] = { w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 } })
+
+  matches.forEach(m => {
+    if (m.phase !== 'group' || !m.result || m.result.status !== 'played') return
+    if (!m.team1Id || !m.team2Id) return
+    const s1 = parseInt(m.result.score1), s2 = parseInt(m.result.score2)
+    if (isNaN(s1) || isNaN(s2)) return
+    if (!st[m.team1Id]) st[m.team1Id] = { w:0,d:0,l:0,gf:0,ga:0,pts:0 }
+    if (!st[m.team2Id]) st[m.team2Id] = { w:0,d:0,l:0,gf:0,ga:0,pts:0 }
+    st[m.team1Id].gf += s1; st[m.team1Id].ga += s2
+    st[m.team2Id].gf += s2; st[m.team2Id].ga += s1
+    if (s1 > s2)      { st[m.team1Id].w++; st[m.team1Id].pts += 3; st[m.team2Id].l++ }
+    else if (s1 < s2) { st[m.team2Id].w++; st[m.team2Id].pts += 3; st[m.team1Id].l++ }
+    else              { st[m.team1Id].d++; st[m.team1Id].pts++; st[m.team2Id].d++; st[m.team2Id].pts++ }
+  })
+
+  const rows = Object.entries(st).sort(([,a],[,b]) => b.pts - a.pts || (b.gf-b.ga) - (a.gf-a.ga) || b.gf - a.gf)
+  const andataCount = matches.filter(m => m.round === 'Andata' && m.result?.status === 'played').length
+  const ritornoCount = matches.filter(m => m.round === 'Ritorno' && m.result?.status === 'played').length
+
+  return (
+    <div className="p-4 space-y-4 overflow-auto h-full">
+      <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-cyan-400 mb-1">
+        <ArrowUpDown size={12} /> Classifica Combinata
+        <span className="ml-auto text-gray-500 font-normal normal-case">
+          Andata {andataCount} · Ritorno {ritornoCount}
+        </span>
+      </div>
+      <div className="bg-gray-800/60 border border-gray-700 rounded-xl overflow-hidden">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="text-gray-500 border-b border-gray-700">
+              <th className="text-left px-3 py-1.5">#</th>
+              <th className="text-left px-3 py-1.5">Squadra</th>
+              <th className="px-2 py-1.5">V</th>
+              <th className="px-2 py-1.5">P</th>
+              <th className="px-2 py-1.5">S</th>
+              <th className="px-2 py-1.5">GF</th>
+              <th className="px-2 py-1.5">GS</th>
+              <th className="px-2 py-1.5 text-white font-bold">Pt</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(([tid, s], i) => {
+              const team = teamMap[tid]
+              return (
+                <tr key={tid} className={`border-b border-gray-700/40 ${i === 0 ? 'bg-amber-900/10' : i === 1 ? 'bg-gray-700/10' : ''}`}>
+                  <td className="px-3 py-1.5">
+                    <span className={`font-bold text-sm ${i === 0 ? 'text-amber-400' : i === 1 ? 'text-gray-300' : 'text-gray-500'}`}>{i + 1}</span>
+                  </td>
+                  <td className="px-3 py-1.5 flex items-center gap-1.5">
+                    {team && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: team.color }} />}
+                    <span className="text-white">{team?.name || tid}</span>
+                  </td>
+                  <td className="text-center px-2 py-1.5 text-emerald-400">{s.w}</td>
+                  <td className="text-center px-2 py-1.5 text-gray-400">{s.d}</td>
+                  <td className="text-center px-2 py-1.5 text-red-400">{s.l}</td>
+                  <td className="text-center px-2 py-1.5 text-gray-300">{s.gf}</td>
+                  <td className="text-center px-2 py-1.5 text-gray-300">{s.ga}</td>
+                  <td className="text-center px-2 py-1.5 font-bold text-white">{s.pts}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+// ─── Placement Finals view ────────────────────────────────────────────────────
+
+function PlacementView({ matches, teams }) {
+  const teamMap = Object.fromEntries(teams.map(t => [t.id, t]))
+  const groupMatches = matches.filter(m => m.phase === 'group')
+  const placementMatches = matches.filter(m => m.phase === 'placement')
+
+  // Compute standings from round-robin phase
+  const st = {}
+  teams.forEach(t => { st[t.id] = { w:0,d:0,l:0,gf:0,ga:0,pts:0 } })
+  groupMatches.forEach(m => {
+    if (!m.result || m.result.status !== 'played') return
+    if (!m.team1Id || !m.team2Id) return
+    const s1 = parseInt(m.result.score1), s2 = parseInt(m.result.score2)
+    if (isNaN(s1) || isNaN(s2)) return
+    if (!st[m.team1Id]) st[m.team1Id] = { w:0,d:0,l:0,gf:0,ga:0,pts:0 }
+    if (!st[m.team2Id]) st[m.team2Id] = { w:0,d:0,l:0,gf:0,ga:0,pts:0 }
+    st[m.team1Id].gf += s1; st[m.team1Id].ga += s2
+    st[m.team2Id].gf += s2; st[m.team2Id].ga += s1
+    if (s1 > s2)      { st[m.team1Id].w++; st[m.team1Id].pts += 3; st[m.team2Id].l++ }
+    else if (s1 < s2) { st[m.team2Id].w++; st[m.team2Id].pts += 3; st[m.team1Id].l++ }
+    else              { st[m.team1Id].d++; st[m.team1Id].pts++; st[m.team2Id].d++; st[m.team2Id].pts++ }
+  })
+  const ranked = Object.entries(st).sort(([,a],[,b]) => b.pts - a.pts || (b.gf-b.ga) - (a.gf-a.ga) || b.gf - a.gf)
+
+  const { dispatch } = useTournament()
+  const [editing, setEditing] = useState(null)
+  const [scores, setScores] = useState({})
+
+  const saveResult = (matchId) => {
+    const sc = scores[matchId] || {}
+    dispatch({ type: 'SET_RESULT', payload: { matchId, score1: sc.s1 ?? '', score2: sc.s2 ?? '' } })
+    setEditing(null)
+  }
+
+  return (
+    <div className="p-4 space-y-5 overflow-auto h-full">
+      {/* Standings */}
+      <div>
+        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-400 mb-3">
+          <List size={12} /> Classifica Girone
+        </div>
+        <div className="bg-gray-800/60 border border-gray-700 rounded-xl overflow-hidden">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-gray-500 border-b border-gray-700">
+                <th className="text-left px-3 py-1.5">#</th>
+                <th className="text-left px-3 py-1.5">Squadra</th>
+                <th className="px-2 py-1.5">V</th><th className="px-2 py-1.5">P</th>
+                <th className="px-2 py-1.5">S</th><th className="px-2 py-1.5 font-bold text-white">Pt</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ranked.map(([tid, s], i) => {
+                const team = teamMap[tid]
+                const pos = i + 1
+                const posColor = pos === 1 ? 'text-amber-400' : pos === 2 ? 'text-gray-300' : pos === 3 ? 'text-orange-500' : 'text-gray-500'
+                return (
+                  <tr key={tid} className="border-b border-gray-700/40">
+                    <td className="px-3 py-1.5"><span className={`font-bold ${posColor}`}>{pos}</span></td>
+                    <td className="px-3 py-1.5 flex items-center gap-1.5">
+                      {team && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: team.color }} />}
+                      <span className="text-white">{team?.name || tid}</span>
+                    </td>
+                    <td className="text-center px-2 py-1.5 text-emerald-400">{s.w}</td>
+                    <td className="text-center px-2 py-1.5 text-gray-400">{s.d}</td>
+                    <td className="text-center px-2 py-1.5 text-red-400">{s.l}</td>
+                    <td className="text-center px-2 py-1.5 font-bold text-white">{s.pts}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Placement matches */}
+      {placementMatches.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-purple-400 mb-3">
+            <Trophy size={12} /> Finali di Piazzamento
+          </div>
+          <div className="space-y-2">
+            {placementMatches.map(m => {
+              const rankIdx1 = parseInt(m.placeholder1) - 1  // "1° Classifica" → idx 0
+              const rankIdx2 = parseInt(m.placeholder2) - 1
+              const t1 = m.team1Id ? teamMap[m.team1Id] : ranked[rankIdx1] ? teamMap[ranked[rankIdx1][0]] : null
+              const t2 = m.team2Id ? teamMap[m.team2Id] : ranked[rankIdx2] ? teamMap[ranked[rankIdx2][0]] : null
+              const played = m.result?.status === 'played'
+              const isEditing = editing === m.id
+              const sc = scores[m.id] || {}
+
+              return (
+                <div key={m.id} className={`rounded-xl border p-3 ${played ? 'border-emerald-700/40 bg-emerald-900/10' : 'border-gray-700 bg-gray-800/50'}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-gray-400">{m.round}</span>
+                    {!isEditing && (
+                      <button onClick={() => setEditing(m.id)} className="text-gray-500 hover:text-blue-400 transition-all">
+                        {played ? <Check size={12} className="text-emerald-400" /> : <Pencil size={11} />}
+                      </button>
+                    )}
+                  </div>
+                  {isEditing ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="flex-1 text-xs text-white text-right truncate">{t1?.name || m.placeholder1}</span>
+                        <input type="number" min="0" className="w-10 bg-gray-700 border border-blue-500 rounded text-white text-center text-sm py-0.5 focus:outline-none"
+                          value={sc.s1 ?? ''} onChange={e => setScores(prev => ({ ...prev, [m.id]: { ...prev[m.id], s1: e.target.value } }))} autoFocus />
+                        <span className="text-gray-500 text-xs">-</span>
+                        <input type="number" min="0" className="w-10 bg-gray-700 border border-blue-500 rounded text-white text-center text-sm py-0.5 focus:outline-none"
+                          value={sc.s2 ?? ''} onChange={e => setScores(prev => ({ ...prev, [m.id]: { ...prev[m.id], s2: e.target.value } }))} />
+                        <span className="flex-1 text-xs text-white truncate">{t2?.name || m.placeholder2}</span>
+                      </div>
+                      <div className="flex gap-1">
+                        <button onClick={() => setEditing(null)} className="flex-1 text-[10px] py-1 bg-gray-700 text-gray-300 rounded">Annulla</button>
+                        <button onClick={() => saveResult(m.id)} className="flex-1 text-[10px] py-1 bg-blue-500 text-white rounded flex items-center justify-center gap-1"><Check size={9} />Salva</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className={`flex-1 truncate ${t1 ? 'text-white' : 'text-gray-500 italic text-xs'}`}>{t1?.name || m.placeholder1}</span>
+                      {played ? (
+                        <span className="px-3 font-bold text-emerald-300">{m.result.score1} – {m.result.score2}</span>
+                      ) : (
+                        <span className="px-3 text-gray-600 text-xs">vs</span>
+                      )}
+                      <span className={`flex-1 text-right truncate ${t2 ? 'text-white' : 'text-gray-500 italic text-xs'}`}>{t2?.name || m.placeholder2}</span>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+          <p className="text-[10px] text-gray-600 mt-2">
+            Completa tutte le partite del girone per determinare i partecipanti alle finali.
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Double Elimination view ──────────────────────────────────────────────────
 
 function DEMatchRow({ match, teams }) {
@@ -434,6 +651,8 @@ export default function BracketView() {
   const { state } = useTournament()
   const { matches, teams, format } = state
 
+  if (format?.type === 'double_roundrobin') return <CombinedStandings matches={matches} teams={teams} />
+  if (format?.type === 'roundrobin_placement') return <PlacementView matches={matches} teams={teams} />
   if (format?.type === 'double_elimination') return <DoubleEliminationView matches={matches} teams={teams} />
   if (format?.type === 'swiss') return <SwissView matches={matches} teams={teams} />
 
